@@ -1,0 +1,14 @@
+keys:
+  - &user  age1fpess2dm7hp5gxsrsh3cyztsgryrx645n6f50gyf55dldaxpay2q6sfaec
+  - &fleet age13qtz74rmyvfad5q5wttwqemy75hk5j8vu4s8hgfcz5uk9gujafksrpen9r
+
+# Every host secrets file is encrypted to user (for repo-side editing) and
+# fleet (for runtime decryption on the Pi). One shared fleet age key lives
+# on every Pi at /var/lib/sops-nix/host-key.txt; planted from fleet.age via
+# the bootstrap step (see README "Add or reflash a host").
+creation_rules:
+  - path_regex: secrets/.*\.yaml$
+    key_groups:
+      - age:
+          - *user
+          - *fleet

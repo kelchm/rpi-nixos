@@ -1,0 +1,6 @@
+result
+result-*
+.direnv/
+
+# sops age private key — see .envrc for SOPS_AGE_KEY_FILE.
+/age.key
