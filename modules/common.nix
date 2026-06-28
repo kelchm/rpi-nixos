@@ -44,14 +44,6 @@
     tmux
   ];
 
-  # Debug-friendly defaults so we're not flying blind on HDMI when sshd is
-  # unreachable. Cost is small; benefit is being able to actually diagnose.
-  #   - autologin on tty1 → can scroll back + run journalctl at the console
-  #   - persistent journal → `journalctl -b -1` reads the PREVIOUS boot
-  # (kernel console=tty1 is already set by each hardware module.)
-  services.getty.autologinUser = "kelchm";
-  services.journald.extraConfig = "Storage=persistent";
-
   # stateVersion is per-host (set in each host's default.nix). All current
   # hosts build against nvmd's pinned nixpkgs (25.11), so they're uniformly
   # "25.11" today; keeping it per-host keeps a future split (one host bumping
