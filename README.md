@@ -10,6 +10,7 @@ This is **specific to my setup** — hostnames, WiFi network, hardware, location
 |---|---|---|---|
 | `streamer-basement-workbench` | Pi Zero 2 W | AirPlay receiver → PipeWire → USB DAC | Running |
 | `ups-compute-rack` | Pi 5 | NUT server for the compute rack's UPS | Running |
+| `ups-office` | Pi 5 | NUT server for the office UPS (Liebert PSA5, Starlink + T-Mobile gateways) | In progress |
 | `ups-network-rack` | Pi 5 | NUT server for the network rack's UPS | Planned |
 | `streamer-*` (more) | Pi 5 (PoE-able) or Pi Zero 2 W | More AirPlay receivers | Planned |
 | `uconsole` | ClockworkPi uConsole (CM4 or CM5) | Personal handheld | Planned |
@@ -33,7 +34,7 @@ Worth revisiting when BCM2712 PCIe + RP1 patches land in mainline (~6.19–6.21)
 ## Layout
 
 ```
-flake.nix                          one mkHost helper, two hosts today
+flake.nix                          one mkHost helper, three hosts today
 flake.lock
 .sops.yaml                         user + fleet recipients, glob creation rule
 .mise.toml                         pins sops + age; sets SOPS_AGE_KEY_FILE
@@ -65,7 +66,7 @@ hosts/
 Hostnames are `<role>-<location>`. Role first so `ssh <role>-<tab>` lists all hosts of that role.
 
 - `streamer-basement-workbench`, `streamer-office`
-- `ups-compute-rack`, `ups-network-rack`
+- `ups-compute-rack`, `ups-office`, `ups-network-rack`
 - `uconsole` (one-off, no role prefix needed)
 
 Display names (the string in AirPlay pickers, etc.) are separate and free-form English. The streamer above is "Basement Workbench Speakers" in Music.app. Set in the per-host `default.nix` via the role's relevant option.

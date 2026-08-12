@@ -62,6 +62,10 @@
           hostName = "ups-compute-rack";
           modules = [ ./hosts/ups-compute-rack ];
         };
+        ups-office = mkHost {
+          hostName = "ups-office";
+          modules = [ ./hosts/ups-office ];
+        };
       };
     };
 }
