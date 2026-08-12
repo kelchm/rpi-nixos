@@ -92,4 +92,23 @@
   systemd.services.shairport-sync.restartTriggers = [
     config.environment.etc."shairport-sync.conf".source
   ];
+
+  # WiFi power-save OFF on wlan0. This is a mains-powered receiver, so the
+  # power-save win is nil — and DTIM buffering adds RX-latency spikes that can
+  # stall shairport's ~0.35 s playout buffer. (Root-caused dropout investigation:
+  # the audible glitches were downlink-delivery stalls — 2.4 GHz microwave
+  # interference on channel 6 — not the DAC; power-save is a secondary latency
+  # source worth removing regardless.)
+  #
+  # brcmfmac's in-kernel default re-enables power-save on every boot / driver
+  # reload, so pin it off with a oneshot bound to the interface appearing.
+  systemd.services.wifi-powersave-off = {
+    wantedBy = [ "sys-subsystem-net-devices-wlan0.device" ];
+    after = [ "sys-subsystem-net-devices-wlan0.device" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = "${pkgs.iw}/bin/iw dev wlan0 set power_save off";
+    };
+  };
 }
