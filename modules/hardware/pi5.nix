@@ -40,21 +40,27 @@
   documentation.enable = lib.mkDefault false;
   documentation.nixos.enable = lib.mkDefault false;
 
-  # Serial console enabled so a USB-TTL cable on GPIO 6/8/10 gives us a
-  # debuggable console even if HDMI/network are misbehaving. enable_uart is
-  # already set by raspberry-pi-5.base; we just need the kernel params + getty.
-  # tty1 (HDMI fb) listed first; ttyAMA0 last means /dev/console binds there
-  # — early-boot kernel messages will appear on UART.
+  # Serial console on the Pi 5's GPIO UART. /dev/ttyAMA0 genuinely exists here
+  # (unlike Pi Zero 2 W, where PL011 belongs to the Bluetooth serdev), and
+  # ups-compute-rack confirms it works: /sys/class/tty/console/active is
+  # "tty1 ttyAMA0" with a live getty.
+  #
+  # Named explicitly rather than relying on the base's `console=serial0,...`:
+  # serial0 is a device-tree ALIAS, and it is not established that Linux
+  # resolves it from the extlinux append line the way the Pi firmware resolves
+  # it in cmdline.txt. The working console today comes from this explicit
+  # ttyAMA0 param, so it stays until proven redundant. Cheap insurance for the
+  # one situation a serial console exists for — the network being down.
   boot.kernelParams = [
     "console=tty1"
     "console=ttyAMA0,115200n8"
   ];
 
-  # NixOS does NOT auto-spawn a getty on a console= kernel arg — must be
-  # explicit. Without this, the kernel writes to UART but no login prompt.
-  systemd.services."serial-getty@ttyAMA0" = {
-    enable = true;
-    wantedBy = [ "getty.target" ];
-    serviceConfig.Restart = "always";
-  };
+  # NO explicit `systemd.services."serial-getty@ttyAMA0"` here — that was the
+  # bug. Declaring a concrete instance SHADOWS systemd's serial-getty@.service
+  # template and discards its BindsTo=dev-%i.device guard, which is what stops a
+  # getty being started against a device that isn't present. It was harmless on
+  # Pi 5 (the device exists) but the identical block on Pi Zero 2 W restart-
+  # looped 1,889 times in 23 h and hammered the SD card via journald.
+  # systemd-getty-generator creates the getty from console= on its own.
 }

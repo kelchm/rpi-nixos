@@ -28,18 +28,22 @@
   # tooling version assertion). We don't use ZFS — disable.
   boot.supportedFilesystems.zfs = lib.mkForce false;
 
-  # Serial console enabled so a USB-TTL on GPIO 6/8/10 is debuggable. The
-  # enable_uart config.txt setting is already on via raspberry-pi-02.base.
-  boot.kernelParams = [
-    "console=tty1"
-    "console=ttyAMA0,115200n8"
-  ];
-
-  systemd.services."serial-getty@ttyAMA0" = {
-    enable = true;
-    wantedBy = [ "getty.target" ];
-    serviceConfig.Restart = "always";
-  };
+  # No explicit serial-console wiring here — deliberately. raspberry-pi-02.base
+  # already emits `console=serial0,115200n8 console=tty1` and sets enable_uart=1,
+  # and systemd-getty-generator spawns a serial getty for the consoles that
+  # actually exist (skipping the ones that don't).
+  #
+  # We previously hard-coded `systemd.services."serial-getty@ttyAMA0"` with
+  # Restart="always". Declaring a concrete instance SHADOWS systemd's
+  # serial-getty@.service template and so discards its BindsTo=dev-%i.device
+  # guard — the one thing preventing a getty from being started against an
+  # absent device. On Pi Zero 2 W the PL011 is owned by the Bluetooth serdev, so
+  # /dev/ttyAMA0 never appears: the unit restart-looped indefinitely (1,889
+  # restarts in 23 h of uptime), and the resulting journald churn was the
+  # dominant source of SD-card writes on this host.
+  #
+  # If a serial console is ever wanted here, free the PL011 with a disable-bt
+  # overlay — do not force a getty at a device that isn't there.
 
   # ACT LED steady-on instead of the kernel default heartbeat (which looks
   # frantic and made the user question whether the Pi was healthy).
