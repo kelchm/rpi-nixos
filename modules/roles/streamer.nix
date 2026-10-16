@@ -102,8 +102,11 @@
   #
   # brcmfmac's in-kernel default re-enables power-save on every boot / driver
   # reload, so pin it off with a oneshot bound to the interface appearing.
+  # bindsTo stops the unit when wlan0 vanishes, so it runs again after a
+  # driver reload (wifi-recovery.nix) instead of staying "active" from boot.
   systemd.services.wifi-powersave-off = {
     wantedBy = [ "sys-subsystem-net-devices-wlan0.device" ];
+    bindsTo = [ "sys-subsystem-net-devices-wlan0.device" ];
     after = [ "sys-subsystem-net-devices-wlan0.device" ];
     serviceConfig = {
       Type = "oneshot";

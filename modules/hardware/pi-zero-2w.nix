@@ -15,10 +15,23 @@
     nixos-raspberrypi.nixosModules.raspberry-pi-02.display-vc4
     # SD-image builder. Without this, no rootfs definition → eval fails.
     nixos-raspberrypi.nixosModules.sd-image
+    ./wifi-recovery.nix
   ];
 
   # Pi 02 has no Ethernet — WiFi only. Configured per-host (each WiFi PSK is a
   # per-host sops secret).
+
+  # brcmfmac options Raspberry Pi OS ships by default (rpi-brcmfmac.conf in
+  # firmware-nonfree) and nvmd does not. roamoff=1 hands roaming decisions to
+  # wpa_supplicant instead of the chip firmware; our BCM43430/2 firmware
+  # (9.88.4.77) has an open report of wedging after switching APs and never
+  # reconnecting (RPi-Distro/firmware-nonfree#27). feature_disable clears
+  # FWSUP | SAE | DUMP_OBSS — bit positions shift between kernels (see
+  # raspberrypi/linux#7634), so re-derive this mask from feature.h on any
+  # kernel bump rather than copying RPi OS's current value.
+  boot.extraModprobeConfig = ''
+    options brcmfmac roamoff=1 feature_disable=0x282000
+  '';
 
   # Free up some boot space.
   documentation.enable = lib.mkDefault false;
