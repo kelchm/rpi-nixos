@@ -48,7 +48,8 @@ modules/
   users.nix                        admin user + authorized keys
   ssh.nix                          OpenSSH hardening
   hardware/
-    pi-zero-2w.nix                 nvmd raspberry-pi-02.base + display-vc4 + sd-image
+    pi-zero-2w.nix                 nvmd raspberry-pi-02.base + display-vc4 + sd-image + RPi OS brcmfmac options
+    wifi-recovery.nix              escalating self-heal for a wedged wlan0 (supplicant → driver reload → reboot)
     pi5.nix                        nvmd raspberry-pi-5.base + display-vc4 + sd-image
   roles/
     streamer.nix                   PipeWire (systemWide) + shairport-sync + the pipewire-group fix
@@ -195,6 +196,8 @@ done
 
 ## Known quirks
 
+- **Workbench IPv6 discovery** is disabled in its host config: Thread border routers on Main and Guest announce the same on-link IPv6 prefix, but the Pi is reachable from Main only over IPv4. Avahi uses IPv4 announcements with `publish-aaaa-on-ipv4=no` so AirPlay clients do not select an unreachable IPv6 address. Remove both settings only after cross-VLAN IPv6 reachability is established. This does not fix the separate Tailscale route/firewall path to Guest.
+- **brcmfmac options**: nvmd doesn't ship Raspberry Pi OS's `rpi-brcmfmac.conf` (`roamoff=1 feature_disable=0x282000`), so the chip firmware handled roaming and once left the streamer off Wi-Fi for 13 days with the OS still up. `pi-zero-2w.nix` sets the options; `wifi-recovery.nix` is the safety net and writes a snapshot to `/var/log/wifi-recovery/` before each recovery step. The `feature_disable` bits shift between kernels, so re-check it on kernel bumps.
 - **AirPlay 2** on the streamer is blocked on putting the Pi on the same L2 subnet as the AirPlay source. Cross-subnet PTP doesn't reach nqptp. Reverted to AP1, which works.
 - **`services.shairport-sync` + `services.pipewire.systemWide`** don't auto-wire the shairport user into the `pipewire` group. Silent EACCES on the PipeWire socket otherwise. We add it manually in `modules/roles/streamer.nix`. NixOS integration gap.
 - **shairport-sync config restart**: NixOS doesn't restart the daemon when only its `/etc/shairport-sync.conf` changes (the unit file is unchanged). We add an explicit `restartTriggers` in the streamer role so deploys reliably re-read the config.

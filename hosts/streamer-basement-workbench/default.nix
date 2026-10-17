@@ -13,6 +13,19 @@
   # User-facing name in iOS/macOS AirPlay pickers.
   services.shairport-sync.settings.general.name = "Basement Workbench Speakers";
 
+  # Thread border routers on Main and Guest announce the same on-link IPv6
+  # prefix. Reflected Bonjour records then send Main clients looking for this
+  # Pi on their own VLAN. Publish only its reachable IPv4 address until IPv6
+  # routing between these networks is deliberately configured.
+  services.avahi = {
+    ipv6 = false;
+    # Disabling IPv6 sockets alone still permits AAAA records over IPv4.
+    extraConfig = ''
+      [publish]
+      publish-aaaa-on-ipv4=no
+    '';
+  };
+
   # WiFi: both SSID and PSK live in sops (see secrets.nix). The rendered
   # network={} block gets spliced into wpa_supplicant.conf at activation.
   # wpa_supplicant doesn't support ext: substitution for SSIDs, hence the
