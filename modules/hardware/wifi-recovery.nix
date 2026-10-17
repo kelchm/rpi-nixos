@@ -11,6 +11,7 @@ let
   #   6 → reload brcmfmac (re-downloads the chip firmware; NixOS's udev rule
   #       restarts wpa_supplicant when wlan0 reappears)
   #  10 → reboot
+  # and starts over (13, 16, 20, ...) if the reboot didn't happen.
   #
   # The journal is volatile (see common.nix), so before each step a short
   # snapshot of driver and supplicant state goes to /var/log/wifi-recovery.
@@ -49,7 +50,7 @@ let
         sync
       }
 
-      case $n in
+      case $(( (n - 1) % 10 + 1 )) in
         3) snapshot restart-supplicant; systemctl restart wpa_supplicant ;;
         6) snapshot reload-driver; modprobe -r brcmfmac_wcc brcmfmac; modprobe brcmfmac ;;
         10) snapshot reboot; systemctl reboot ;;
