@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, lib, pkgs, ... }:
 {
   # NUT (Network UPS Tools) server. Per-host config declares the specific UPS
   # under `power.ups.ups.<name>` and the upsmon monitor entry pointing at it.
@@ -28,4 +28,44 @@
   networking.firewall.allowedTCPPorts = [ 3493 ];
 
   environment.systemPackages = with pkgs; [ nut ];
+
+  # Adding this role to an enrolled host adds its collector without changing
+  # the metrics profile. NUT's LIST commands are anonymous; no monuser needed.
+  services.prometheus.exporters.nut = lib.mkIf config.services.vmagent.enable {
+    enable = true;
+    listenAddress = "127.0.0.1";
+    openFirewall = false;
+    nutServer = "127.0.0.1";
+    # v3.2.2's built-in list omits runtime even though the NixOS option says
+    # an empty list exports everything. Include it explicitly for UPS alerts.
+    nutVariables = [
+      "battery.charge"
+      "battery.charge.low"
+      "battery.runtime"
+      "battery.runtime.low"
+      "battery.voltage"
+      "battery.voltage.nominal"
+      "input.voltage"
+      "input.voltage.nominal"
+      "ups.load"
+      "ups.status"
+    ];
+  };
+  systemd.services.prometheus-nut-exporter = lib.mkIf config.services.vmagent.enable {
+    serviceConfig.MemoryMax = "32M";
+  };
+  services.vmagent.prometheusConfig.scrape_configs = lib.mkIf config.services.vmagent.enable [
+    {
+      job_name = "pi-nut";
+      metrics_path = "/ups_metrics";
+      # One target per UPS, also works when a future Pi has several USB UPSes.
+      static_configs = map (ups: {
+        targets = [ "127.0.0.1:9199" ];
+        labels = { inherit ups; };
+      }) (builtins.attrNames config.power.ups.ups);
+      relabel_configs = [
+        { source_labels = [ "ups" ]; target_label = "__param_ups"; }
+      ];
+    }
+  ];
 }

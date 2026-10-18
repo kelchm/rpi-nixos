@@ -53,13 +53,14 @@ modules/
     pi5.nix                        nvmd raspberry-pi-5.base + display-vc4 + sd-image
   roles/
     streamer.nix                   PipeWire (systemWide) + shairport-sync + the pipewire-group fix
-    ups.nix                        NUT (upsd + upsmon) in standalone mode
+    ups.nix                        NUT (upsd + upsmon); adds pi-nut metrics on enrolled hosts
   profiles/
     debug.nix                      opt-in: HDMI autologin + persistent journal (import on hosts being debugged)
+    metrics.nix                    opt-in: loopback node-exporter + vmagent, SOPS token, bounded push queue
 hosts/
   <hostname>/
-    default.nix                    imports hardware + role; sets hostname-specific bits
-    secrets.nix                    optional — only present if this host consumes sops secrets
+    default.nix                    imports hardware + role + optional profiles; sets hostname-specific bits
+    secrets.nix                    optional — host-specific sops declarations
 ```
 
 ## Naming
@@ -90,6 +91,47 @@ Edit a secret:
 ```sh
 sops secrets/<hostname>.yaml
 ```
+
+## Enroll a Pi in metrics
+
+Import `../../modules/profiles/metrics.nix` in `hosts/<hostname>/default.nix`, then add `metrics-ingest-token` to `secrets/<hostname>.yaml` with `sops`. The profile declares the secret itself; no per-host metrics configuration or `secrets.nix` is needed. Keep any existing secrets in the payload. It is enabled in the configurations for `ups-compute-rack`, `ups-office`, and `streamer-basement-workbench`.
+
+Before deploying, create the matching token key and `VMUser` in home-lab's `kubernetes/apps/observability/metrics-ingest/app/` as described in its [host-monitoring runbook](https://github.com/kelchm/home-lab/blob/main/docs/runbooks/host-monitoring.md). Use a distinct random token for each host and store the same value in both repos. VMAuth must stamp `instance=<hostname>` and `platform=pi`. The configured hosts use `UPS_COMPUTE_RACK_TOKEN`, `UPS_OFFICE_TOKEN`, and `STREAMER_BASEMENT_WORKBENCH_TOKEN` in home-lab; their tokens are already encrypted in this repo. The Pi supplies no identity labels. These tokens inherit the existing shared-fleet-key trust model: any Pi holding that key can decrypt the other Pis’ tokens. Add `pi-node`, `pi-vmagent`, and `pi-nut` to home-lab's existing host-alert and Hosts-dashboard selectors before relying on coverage, and include `wl` interfaces in its network panels for WiFi-only Pis; subsequent Pis need no new selector changes.
+
+The host needs `/var/lib/sops-nix/host-key.txt` before activation can decrypt its token. Follow the fleet-key bootstrap below for a new or reflashed host. On an existing host that has never consumed secrets, securely install the decrypted fleet key there as root with mode `0600` before the first metrics deployment. The two UPS hosts previously had no SOPS payloads, so check with `ssh kelchm@<hostname>.local sudo test -s /var/lib/sops-nix/host-key.txt` during their rollout. If missing, install the existing fleet key (do not rotate it):
+
+```sh
+age -d -i "$SOPS_AGE_KEY_FILE" fleet.age | \
+  ssh kelchm@<hostname>.local 'sudo install -d -m 0700 /var/lib/sops-nix && sudo install -m 0600 /dev/stdin /var/lib/sops-nix/host-key.txt'
+```
+
+The profile runs node-exporter on `127.0.0.1:9100` and vmagent on `127.0.0.1:8429`. Every 30 seconds, vmagent scrapes `pi-node` and `pi-vmagent`, then pushes to `https://metrics-ingest.home.kelch.io/api/v1/write`. The root-only token is passed through a systemd credential, outside the Nix store. Editing the encrypted token and deploying restarts vmagent to refresh that credential; coordinate rotation with home-lab.
+
+### Role-specific collectors
+
+Roles enable a stock exporter on loopback and append a job to `services.vmagent.prometheusConfig.scrape_configs`. Nix merges the job lists, so the base profile needs no edits. See `modules/roles/ups.nix`: when vmagent is enabled, it adds the NUT exporter on `127.0.0.1:9199` and a `pi-nut` job with one `/ups_metrics?ups=<name>` target per entry in `power.ups.ups`. The target's `ups` label identifies the device even if its scrape fails. NUT telemetry reads are anonymous, so the exporter does not use `monuser`; the existing monitor-password TODO remains.
+
+### Memory and SD storage
+
+The base services have systemd memory ceilings of 96 MiB for vmagent and 48 MiB for node-exporter (144 MiB total); the UPS role adds a 32 MiB ceiling for NUT. vmagent uses one remote-write worker, a 16 MiB internal memory budget, a 48 MiB Go soft limit and `MemoryHigh=64M`. These are resource limits, not measured working sets. The workbench Pi Zero 2 W has been enrolled with this unchanged profile; long-term memory use and WiFi outage behavior still need observation.
+
+In a 185-second live observation on 2026-10-18 with AirPlay playback, vmagent used 23.2–26.9 MiB and node-exporter 21.9–22.9 MiB of cgroup memory; their peaks since boot were 28.6 and 23.7 MiB respectively. At least 244 MiB remained available. Neither metrics nor audio services restarted, no cgroup memory-limit/OOM events occurred, and playback was audibly clean. vmagent's process and queue write counters stayed at zero; the whole SD device wrote 32 KiB during the window. This short healthy-network check does not predict long outages or long-term SD wear.
+
+The persistent queue lives at `/var/cache/vmagent/remote_write_tmp`. Its pending-data limit is 1,073,741,824 bytes (1 GiB), matching the other enrolled hosts. Reserve about 2 GiB on the SD filesystem for backlog, retained chunk files and metadata. Oldest data is discarded at capacity. Raising this allowance does not increase normal healthy-delivery writes; it permits more samples to survive an outage. At the workbench streamer’s observed rate of about 780 B/s, 1 GiB represents roughly 16 days of backlog, but actual retention depends on the workload. The limit bounds backlog, not cumulative writes or outage duration.
+
+Healthy delivery normally buffers in RAM. An outage spills to disk, and shutdown flushes pending samples; sudden power loss can lose the RAM buffer. Thirty-second scrapes keep collection modest, and journald stays in RAM. The profile adds `psi=1` because the vendor kernel disables pressure accounting by default; reboot after first enrollment for `node_pressure_*` metrics and memory-stall alerts. After enrollment, compare `MemoryCurrent` and `MemoryPeak` with `systemctl show vmagent prometheus-node-exporter` (also `prometheus-nut-exporter` on UPS hosts), queue writes with `rate(vm_persistentqueue_bytes_written_total{job="pi-vmagent"}[1h])`, and actual SD traffic with `rate(node_disk_written_bytes_total{job="pi-node",device="mmcblk0"}[1h])`. A queue-size limit alone does not protect the card from frequent outages.
+
+### Verify after deployment
+
+Build with `nix flake check --accept-flake-config` and `nix build .#nixosConfigurations.<hostname>.config.system.build.toplevel --accept-flake-config`; the stock vmagent module checks the rendered scrape config with `-dryRun` during the build. After deployment, run `ssh kelchm@<hostname>.local curl -s 127.0.0.1:8429/targets`, then query the store:
+
+```promql
+up{platform="pi",instance="ups-compute-rack"}
+network_ups_tools_ups_status{instance="ups-compute-rack",flag="OB"}
+network_ups_tools_battery_runtime{instance="ups-compute-rack"}
+```
+
+Expect `pi-node` and `pi-vmagent` on every enrolled Pi and `pi-nut` on UPS hosts. Runtime is reported in seconds only when the UPS driver supplies it. Replace the instance for another host; no scrape-config edit is needed.
 
 ## Prerequisites
 

@@ -3,6 +3,7 @@
   imports = [
     ../../modules/hardware/pi5.nix
     ../../modules/roles/ups.nix
+    ../../modules/profiles/metrics.nix
   ];
 
   # nvmd pins nixos-25.11; stateVersion matches.
