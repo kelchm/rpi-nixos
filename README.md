@@ -59,7 +59,7 @@ modules/
     metrics.nix                    opt-in: loopback node-exporter + vmagent, SOPS token, bounded push queue
 hosts/
   <hostname>/
-    default.nix                    imports hardware + role; sets hostname-specific bits
+    default.nix                    imports hardware + role + optional profiles; sets hostname-specific bits
     secrets.nix                    optional — host-specific sops declarations
 ```
 
@@ -94,9 +94,9 @@ sops secrets/<hostname>.yaml
 
 ## Enroll a Pi in metrics
 
-Import `../../modules/profiles/metrics.nix` in `hosts/<hostname>/default.nix`, then add `metrics-ingest-token` to `secrets/<hostname>.yaml` with `sops`. The profile declares the secret itself; no per-host metrics configuration or `secrets.nix` is needed. Keep any existing secrets in the payload. It is enabled on `ups-compute-rack` and `ups-office`; `streamer-basement-workbench` does not import it.
+Import `../../modules/profiles/metrics.nix` in `hosts/<hostname>/default.nix`, then add `metrics-ingest-token` to `secrets/<hostname>.yaml` with `sops`. The profile declares the secret itself; no per-host metrics configuration or `secrets.nix` is needed. Keep any existing secrets in the payload. It is enabled in the configurations for `ups-compute-rack`, `ups-office`, and `streamer-basement-workbench`.
 
-Before deploying, create the matching token key and `VMUser` in home-lab's `kubernetes/apps/observability/metrics-ingest/app/` as described in its [host-monitoring runbook](https://github.com/kelchm/home-lab/blob/main/docs/runbooks/host-monitoring.md). Use a distinct random token for each host and store the same value in both repos. VMAuth must stamp `instance=<hostname>` and `platform=pi`. For the initial UPS hosts, use `UPS_COMPUTE_RACK_TOKEN` and `UPS_OFFICE_TOKEN` in home-lab; their tokens are already encrypted in this repo. The Pi supplies no identity labels. These tokens inherit the existing shared-fleet-key trust model: any Pi holding that key can decrypt the other Pis’ tokens. Add `pi-node`, `pi-vmagent`, and `pi-nut` to home-lab's existing host-alert and Hosts-dashboard selectors before relying on coverage; subsequent Pis need no new selector changes.
+Before deploying, create the matching token key and `VMUser` in home-lab's `kubernetes/apps/observability/metrics-ingest/app/` as described in its [host-monitoring runbook](https://github.com/kelchm/home-lab/blob/main/docs/runbooks/host-monitoring.md). Use a distinct random token for each host and store the same value in both repos. VMAuth must stamp `instance=<hostname>` and `platform=pi`. The configured hosts use `UPS_COMPUTE_RACK_TOKEN`, `UPS_OFFICE_TOKEN`, and `STREAMER_BASEMENT_WORKBENCH_TOKEN` in home-lab; their tokens are already encrypted in this repo. The Pi supplies no identity labels. These tokens inherit the existing shared-fleet-key trust model: any Pi holding that key can decrypt the other Pis’ tokens. Add `pi-node`, `pi-vmagent`, and `pi-nut` to home-lab's existing host-alert and Hosts-dashboard selectors before relying on coverage, and include `wl` interfaces in its network panels for WiFi-only Pis; subsequent Pis need no new selector changes.
 
 The host needs `/var/lib/sops-nix/host-key.txt` before activation can decrypt its token. Follow the fleet-key bootstrap below for a new or reflashed host. On an existing host that has never consumed secrets, securely install the decrypted fleet key there as root with mode `0600` before the first metrics deployment. The two UPS hosts previously had no SOPS payloads, so check with `ssh kelchm@<hostname>.local sudo test -s /var/lib/sops-nix/host-key.txt` during their rollout. If missing, install the existing fleet key (do not rotate it):
 
@@ -113,7 +113,9 @@ Roles enable a stock exporter on loopback and append a job to `services.vmagent.
 
 ### Memory and SD storage
 
-The base services have systemd memory ceilings of 96 MiB for vmagent and 48 MiB for node-exporter (144 MiB total); the UPS role adds a 32 MiB ceiling for NUT. vmagent uses one remote-write worker, a 16 MiB internal memory budget, a 48 MiB Go soft limit and `MemoryHigh=64M`. These are resource limits, not measured working sets. They leave room on a 512 MB Pi Zero 2 W, but its audio workload and WiFi outage behavior still need checking during a future enrollment.
+The base services have systemd memory ceilings of 96 MiB for vmagent and 48 MiB for node-exporter (144 MiB total); the UPS role adds a 32 MiB ceiling for NUT. vmagent uses one remote-write worker, a 16 MiB internal memory budget, a 48 MiB Go soft limit and `MemoryHigh=64M`. These are resource limits, not measured working sets. The workbench Pi Zero 2 W has been enrolled with this unchanged profile; long-term memory use and WiFi outage behavior still need observation.
+
+In a 185-second live observation on 2026-10-18 with AirPlay playback, vmagent used 23.2–26.9 MiB and node-exporter 21.9–22.9 MiB of cgroup memory; their peaks since boot were 28.6 and 23.7 MiB respectively. At least 244 MiB remained available. Neither metrics nor audio services restarted, no cgroup memory-limit/OOM events occurred, and playback was audibly clean. vmagent's process and queue write counters stayed at zero; the whole SD device wrote 32 KiB during the window. This short healthy-network check does not predict long outages or long-term SD wear.
 
 The persistent queue lives at `/var/cache/vmagent/remote_write_tmp`. Its pending-data limit is 536,871,040 bytes (512 MiB + 128 bytes), the [smallest limit supported by pinned vmagent 1.136.0](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.136.0/app/vmagent/remotewrite/remotewrite.go#L832-L837); smaller values round up. Partially consumed chunk files can retain roughly another 512 MiB, so reserve about 1 GiB plus metadata on the SD filesystem. Oldest data is discarded at capacity. The limit bounds backlog, not cumulative writes or outage duration.
 
