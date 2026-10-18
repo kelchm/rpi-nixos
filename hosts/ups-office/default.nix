@@ -9,6 +9,10 @@
   # nvmd pins nixos-25.11; stateVersion matches.
   system.stateVersion = "25.11";
 
+  # The Pi 5 DTB disables memory cgroups. The generated cmdline.txt follows
+  # its bootargs, so this override enables the metrics services' memory limits.
+  boot.kernelParams = [ "cgroup_enable=memory" ];
+
   # Vertiv Liebert PSA5 via USB (10af:0002, enumerates as "PowerSure PST").
   # Handled by usbhid-ups's Belkin/Liebert subdriver, but needs three
   # non-default driver options (diagnosed on-device, 2026-08; NUT issue #2271):

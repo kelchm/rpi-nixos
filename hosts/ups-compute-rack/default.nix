@@ -9,6 +9,10 @@
   # nvmd pins nixos-25.11; stateVersion matches.
   system.stateVersion = "25.11";
 
+  # The Pi 5 DTB disables memory cgroups. The generated cmdline.txt follows
+  # its bootargs, so this override enables the metrics services' memory limits.
+  boot.kernelParams = [ "cgroup_enable=memory" ];
+
   # CyberPower UPS attached via USB. `usbhid-ups` is the generic HID Power
   # Device driver and works for the vast majority of modern USB UPSes
   # (APC, CyberPower, modern Liebert/Vertiv). If telemetry comes back wrong
