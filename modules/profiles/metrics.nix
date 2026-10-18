@@ -27,10 +27,10 @@
     extraArgs = [
       "-httpListenAddr=127.0.0.1:8429"
       "-remoteWrite.bearerTokenFile=%d/metrics-ingest-token"
-      # v1.136.0's minimum: (32 MiB + 8 bytes) * 16. Smaller limits round up.
-      # This bounds pending data, not total SD writes; allow another ~512 MiB
-      # for a partially consumed chunk. The stock service keeps it in /var/cache.
-      "-remoteWrite.maxDiskUsagePerURL=536871040"
+      # Match the fleet's 1 GiB pending-data limit. Reserve about 2 GiB on SD
+      # for backlog, retained chunks and metadata; this is not a write-rate cap.
+      # The stock service keeps the persistent queue in /var/cache.
+      "-remoteWrite.maxDiskUsagePerURL=1073741824"
       "-remoteWrite.queues=1"
       "-memory.allowedBytes=16MiB"
     ];
