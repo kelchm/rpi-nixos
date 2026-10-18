@@ -123,6 +123,12 @@ The persistent queue lives at `/var/cache/vmagent/remote_write_tmp`. Its pending
 
 Healthy delivery normally buffers in RAM. An outage spills to disk, and shutdown flushes pending samples; sudden power loss can lose the RAM buffer. Thirty-second scrapes keep collection modest, and journald stays in RAM. The profile adds `psi=1` because the vendor kernel disables pressure accounting by default; reboot after first enrollment for `node_pressure_*` metrics and memory-stall alerts. After enrollment, compare `MemoryCurrent` and `MemoryPeak` with `systemctl show vmagent prometheus-node-exporter` (also `prometheus-nut-exporter` on UPS hosts), queue writes with `rate(vm_persistentqueue_bytes_written_total{job="pi-vmagent"}[1h])`, and actual SD traffic with `rate(node_disk_written_bytes_total{job="pi-node",device="mmcblk0"}[1h])`. A queue-size limit alone does not protect the card from frequent outages.
 
+### Service probes
+
+Only `ups-compute-rack` imports `hosts/ups-compute-rack/probes.nix`. It runs the stock blackbox exporter on `127.0.0.1:9115` and appends `pi-blackbox` and `pi-blackbox-exporter` through the metrics profile’s native scrape configuration. Nine HTTP, TCP, DNS and ICMP probes run every 60 seconds with five-second timeouts. The ingestion token supplies the host identity; `target`, `probe` and `module` distinguish destinations. The other Pis have no probe service or jobs.
+
+The exporter has a 32 MiB Go soft limit, `MemoryHigh=48M` and `MemoryMax=64M`. Verify the memory controller before relying on the systemd limits. Probe targets, expected unauthenticated responses, alert ownership and the Pushover drill are documented in home-lab’s [host-monitoring runbook](https://github.com/kelchm/home-lab/blob/main/docs/runbooks/host-monitoring.md#service-probes).
+
 ### Verify after deployment
 
 Build with `nix flake check --accept-flake-config` and `nix build .#nixosConfigurations.<hostname>.config.system.build.toplevel --accept-flake-config`; the stock vmagent module checks the rendered scrape config with `-dryRun` during the build. After deployment, run `ssh kelchm@<hostname>.local curl -s 127.0.0.1:8429/targets`, then query the store:
