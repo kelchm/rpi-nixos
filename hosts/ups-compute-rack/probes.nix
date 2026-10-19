@@ -15,6 +15,17 @@
             body_size_limit = "1MB";
           };
         };
+        # Kanidm answers /status with HTTP 200 either way; the body says whether it is up.
+        http_kanidm_status = {
+          prober = "http";
+          timeout = "5s";
+          http = {
+            preferred_ip_protocol = "ip4";
+            fail_if_not_ssl = true;
+            fail_if_body_not_matches_regexp = [ "^true$" ];
+            body_size_limit = "1MB";
+          };
+        };
         http_redirect = {
           prober = "http";
           timeout = "5s";
@@ -77,7 +88,7 @@
       static_configs = [
         { targets = [ "10.32.130.1:443" ]; labels = { probe = "gateway-admin"; module = "tcp_connect"; }; }
         { targets = [ "10.32.140.1:443" ]; labels = { probe = "gateway-services"; module = "tcp_connect"; }; }
-        { targets = [ "https://auth.home.kelch.io/ui/login" ]; labels = { probe = "kanidm"; module = "http_2xx"; }; }
+        { targets = [ "https://auth.home.kelch.io/status" ]; labels = { probe = "kanidm"; module = "http_kanidm_status"; }; }
         { targets = [ "https://jellyfin.home.kelch.io/web/" ]; labels = { probe = "jellyfin"; module = "http_2xx"; }; }
         { targets = [ "https://grafana.home.kelch.io/" ]; labels = { probe = "grafana"; module = "http_redirect"; }; }
         { targets = [ "https://home.kelch.io/" ]; labels = { probe = "homepage"; module = "http_401"; }; }
