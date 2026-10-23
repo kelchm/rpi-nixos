@@ -31,9 +31,8 @@
     interfaces.eth0.useDHCP = true;
   };
 
-  # ZFS userspace from our nixos-26.05 nixpkgs would mismatch nvmd's kernel
-  # (pinned to nixos-25.11) and trigger the "kernel module and userspace
-  # tooling versions are not matching" assertion. We don't use ZFS — disable.
+  # ZFS userspace can mismatch nvmd's vendor kernel and trigger the "kernel
+  # module and userspace tooling versions are not matching" assertion. We don't use ZFS — disable.
   boot.supportedFilesystems.zfs = lib.mkForce false;
 
   # Free up some boot space.

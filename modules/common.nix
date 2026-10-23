@@ -59,8 +59,7 @@
     tmux
   ];
 
-  # stateVersion is per-host (set in each host's default.nix). All current
-  # hosts build against nvmd's pinned nixpkgs (25.11), so they're uniformly
-  # "25.11" today; keeping it per-host keeps a future split (one host bumping
-  # ahead of another) cheap.
+  # stateVersion is per-host (set in each host's default.nix): the NixOS release
+  # the host was first installed with. All current hosts were installed on 25.11,
+  # so they stay "25.11" across nvmd release bumps; bump only on reinstall.
 }

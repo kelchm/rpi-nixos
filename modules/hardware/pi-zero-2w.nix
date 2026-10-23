@@ -37,7 +37,7 @@
   documentation.enable = lib.mkDefault false;
   documentation.nixos.enable = lib.mkDefault false;
 
-  # ZFS userspace would mismatch nvmd's pinned-25.11 kernel (kernel module vs
+  # ZFS userspace can mismatch nvmd's vendor kernel (kernel module vs
   # tooling version assertion). We don't use ZFS — disable.
   boot.supportedFilesystems.zfs = lib.mkForce false;
 
