@@ -6,7 +6,7 @@
     ../../modules/profiles/metrics.nix
   ];
 
-  # nvmd pins nixos-25.11; stateVersion matches.
+  # Installed on 25.11; bump only on deliberate format-and-reinstall.
   system.stateVersion = "25.11";
 
   # The Pi 5 DTB disables memory cgroups. The generated cmdline.txt follows

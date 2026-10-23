@@ -182,7 +182,7 @@ Builds on the Mac's linux-builder VM, ships only the diff to the Pi, activates. 
 Same flow either way. Sops works on first boot because the fleet key is on the SD card before the Pi ever runs.
 
 1. **(New host only) create the host module.**
-   - `hosts/<hostname>/default.nix` — imports the hardware module (`modules/hardware/pi-zero-2w.nix` or `pi5.nix`), the role module(s), and `./secrets.nix` if the host consumes any sops secrets. Set `system.stateVersion = "25.11"` (matches nvmd's pinned nixpkgs).
+   - `hosts/<hostname>/default.nix` — imports the hardware module (`modules/hardware/pi-zero-2w.nix` or `pi5.nix`), the role module(s), and `./secrets.nix` if the host consumes any sops secrets. Set `system.stateVersion` to the NixOS release nvmd pins at install time (currently "26.05"); never bump it afterwards.
    - `hosts/<hostname>/secrets.nix` (only if the host has secrets) — declares `sops.secrets.*` and any `sops.templates.*`. No `sops.age.*` boilerplate; that lives centrally in `modules/sops-host-key.nix`.
    - `secrets/<hostname>.yaml` — `sops secrets/<hostname>.yaml` to create + encrypt. The `secrets/*.yaml` glob in `.sops.yaml` auto-encrypts to user + fleet.
    - Add `<hostname> = mkHost { ... }` to `flake.nix`.

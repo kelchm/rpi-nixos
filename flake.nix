@@ -3,7 +3,7 @@
 
   inputs = {
     # Top-level nixpkgs only used for sops-nix follows + tooling. The actual
-    # NixOS systems are built against nvmd's pinned nixpkgs (currently 25.11).
+    # NixOS systems are built against nvmd's pinned nixpkgs (currently 26.05).
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     sops-nix = {
       url = "github:Mic92/sops-nix";
@@ -15,7 +15,7 @@
     # Pi 02 / 3 / 4 / 5 + CM4 / CM5 with vendor kernel + firmware, and the
     # uConsole flake (when we add it) is a thin layer over this.
     # Pin to a tagged release, NEVER track main/develop.
-    nixos-raspberrypi.url = "github:nvmd/nixos-raspberrypi/v1.20260317.0";
+    nixos-raspberrypi.url = "github:nvmd/nixos-raspberrypi/v1.20260801.0";
   };
 
   nixConfig = {
@@ -40,7 +40,7 @@
     let
       # All hosts use nvmd's lib so its overlays (raspberrypi-utils, vendor
       # kernel, etc.) get applied to pkgs. nvmd defaults nixpkgs to its own
-      # pinned input (25.11) — we let it stay there for Cachix kernel hits.
+      # pinned input (26.05) — we let it stay there for Cachix kernel hits.
       mkHost = { hostName, modules }:
         nixos-raspberrypi.lib.nixosSystem {
           specialArgs = { inherit nixos-raspberrypi; };

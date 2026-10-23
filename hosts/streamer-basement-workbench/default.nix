@@ -7,8 +7,8 @@
     ./secrets.nix
   ];
 
-  # NixOS release this host was originally installed against. Matches the
-  # version nvmd pins; bump only on deliberate format-and-reinstall.
+  # NixOS release this host was originally installed against; bump only on
+  # deliberate format-and-reinstall.
   system.stateVersion = "25.11";
 
   # User-facing name in iOS/macOS AirPlay pickers.
