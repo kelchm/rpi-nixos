@@ -18,6 +18,13 @@
     ./wifi-recovery.nix
   ];
 
+  # No vc4-kms-v3d. On nvmd v1.20260801.0 (kernel 6.18, firmware 1.20260521,
+  # U-Boot 2026.04) a Pi 02 with this overlay stops booting seconds after
+  # power-on, ACT LED dark (nvmd/nixos-raspberrypi#254). This headless
+  # receiver plays through a USB DAC and doesn't need KMS; the HDMI console
+  # falls back to the firmware framebuffer.
+  hardware.raspberry-pi.config.all.dt-overlays.vc4-kms-v3d.enable = false;
+
   # Pi 02 has no Ethernet — WiFi only. Configured per-host (each WiFi PSK is a
   # per-host sops secret).
 
