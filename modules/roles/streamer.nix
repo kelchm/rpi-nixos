@@ -70,7 +70,7 @@
     enable = true;
     openFirewall = true;
     settings.general = {
-      output_backend = "pw";
+      output_backend = "pipewire"; # shairport-sync 5 renamed this from "pw"
       ignore_volume_control = "no";
       volume_control_profile = "dasl_tapered";
     };
