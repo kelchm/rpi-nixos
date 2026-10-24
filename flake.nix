@@ -66,6 +66,10 @@
           hostName = "ups-office";
           modules = [ ./hosts/ups-office ];
         };
+        adsb-office = mkHost {
+          hostName = "adsb-office";
+          modules = [ ./hosts/adsb-office ];
+        };
       };
     };
 }

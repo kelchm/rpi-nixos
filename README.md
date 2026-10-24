@@ -11,6 +11,7 @@ This is **specific to my setup** — hostnames, WiFi network, hardware, location
 | `streamer-basement-workbench` | Pi Zero 2 W | AirPlay receiver → PipeWire → USB DAC | Running |
 | `ups-compute-rack` | Pi 5 | NUT server for the compute rack's UPS | Running |
 | `ups-office` | Pi 5 | NUT server for the office UPS (Liebert PSA5, Starlink + T-Mobile gateways) | In progress |
+| `adsb-office` | Pi 3 Model B | ADS-B receiver feeding FlightAware (piaware + MLAT, local SkyAware map) | In progress |
 | `ups-network-rack` | Pi 5 | NUT server for the network rack's UPS | Planned |
 | `streamer-*` (more) | Pi 5 (PoE-able) or Pi Zero 2 W | More AirPlay receivers | Planned |
 | `uconsole` | ClockworkPi uConsole (CM4 or CM5) | Personal handheld | Planned |
@@ -34,7 +35,7 @@ Worth revisiting when BCM2712 PCIe + RP1 patches land in mainline (~6.19–6.21)
 ## Layout
 
 ```
-flake.nix                          one mkHost helper, three hosts today
+flake.nix                          one mkHost helper, four hosts today
 flake.lock
 .sops.yaml                         user + fleet recipients, glob creation rule
 .mise.toml                         pins sops + age; sets SOPS_AGE_KEY_FILE
@@ -51,12 +52,15 @@ modules/
     pi-zero-2w.nix                 nvmd raspberry-pi-02.base + display-vc4 + sd-image + RPi OS brcmfmac options
     wifi-recovery.nix              escalating self-heal for a wedged wlan0 (supplicant → driver reload → reboot)
     pi5.nix                        nvmd raspberry-pi-5.base + display-vc4 + sd-image
+    pi3.nix                        nvmd raspberry-pi-3.base + sd-image, wired DHCP, no KMS
   roles/
     streamer.nix                   PipeWire (systemWide) + shairport-sync + the pipewire-group fix
     ups.nix                        NUT (upsd + upsmon); adds pi-nut metrics on enrolled hosts
+    adsb.nix                       dump1090-fa + piaware (feeder ID and location from sops) + SkyAware on :8080
   profiles/
     debug.nix                      opt-in: HDMI autologin + persistent journal (import on hosts being debugged)
     metrics.nix                    opt-in: loopback node-exporter + vmagent, SOPS token, bounded push queue
+pkgs/                              software nixpkgs lacks: piaware, tcllauncher, mlat-client
 hosts/
   <hostname>/
     default.nix                    imports hardware + role + optional profiles; sets hostname-specific bits
@@ -69,6 +73,7 @@ Hostnames are `<role>-<location>`. Role first so `ssh <role>-<tab>` lists all ho
 
 - `streamer-basement-workbench`, `streamer-office`
 - `ups-compute-rack`, `ups-office`, `ups-network-rack`
+- `adsb-office`
 - `uconsole` (one-off, no role prefix needed)
 
 Display names (the string in AirPlay pickers, etc.) are separate and free-form English. The streamer above is "Basement Workbench Speakers" in Music.app. Set in the per-host `default.nix` via the role's relevant option.
@@ -94,9 +99,9 @@ sops secrets/<hostname>.yaml
 
 ## Enroll a Pi in metrics
 
-Import `../../modules/profiles/metrics.nix` in `hosts/<hostname>/default.nix`, then add `metrics-ingest-token` to `secrets/<hostname>.yaml` with `sops`. The profile declares the secret itself; no per-host metrics configuration or `secrets.nix` is needed. Keep any existing secrets in the payload. It is enabled in the configurations for `ups-compute-rack`, `ups-office`, and `streamer-basement-workbench`.
+Import `../../modules/profiles/metrics.nix` in `hosts/<hostname>/default.nix`, then add `metrics-ingest-token` to `secrets/<hostname>.yaml` with `sops`. The profile declares the secret itself; no per-host metrics configuration or `secrets.nix` is needed. Keep any existing secrets in the payload. It is enabled in the configurations for `ups-compute-rack`, `ups-office`, `streamer-basement-workbench`, and `adsb-office`.
 
-Before deploying, create the matching token key and `VMUser` in home-lab's `kubernetes/apps/observability/metrics-ingest/app/` as described in its [host-monitoring runbook](https://github.com/kelchm/home-lab/blob/main/docs/runbooks/host-monitoring.md). Use a distinct random token for each host and store the same value in both repos. VMAuth must stamp `instance=<hostname>` and `platform=pi`. The configured hosts use `UPS_COMPUTE_RACK_TOKEN`, `UPS_OFFICE_TOKEN`, and `STREAMER_BASEMENT_WORKBENCH_TOKEN` in home-lab; their tokens are already encrypted in this repo. The Pi supplies no identity labels. These tokens inherit the existing shared-fleet-key trust model: any Pi holding that key can decrypt the other Pis’ tokens. Add `pi-node`, `pi-vmagent`, and `pi-nut` to home-lab's existing host-alert and Hosts-dashboard selectors before relying on coverage, and include `wl` interfaces in its network panels for WiFi-only Pis; subsequent Pis need no new selector changes.
+Before deploying, create the matching token key and `VMUser` in home-lab's `kubernetes/apps/observability/metrics-ingest/app/` as described in its [host-monitoring runbook](https://github.com/kelchm/home-lab/blob/main/docs/runbooks/host-monitoring.md). Use a distinct random token for each host and store the same value in both repos. VMAuth must stamp `instance=<hostname>` and `platform=pi`. The configured hosts use `UPS_COMPUTE_RACK_TOKEN`, `UPS_OFFICE_TOKEN`, `STREAMER_BASEMENT_WORKBENCH_TOKEN`, and `ADSB_OFFICE_TOKEN` in home-lab; their tokens are already encrypted in this repo. The Pi supplies no identity labels. These tokens inherit the existing shared-fleet-key trust model: any Pi holding that key can decrypt the other Pis’ tokens. Add `pi-node`, `pi-vmagent`, and `pi-nut` to home-lab's existing host-alert and Hosts-dashboard selectors before relying on coverage, and include `wl` interfaces in its network panels for WiFi-only Pis; subsequent Pis need no new selector changes.
 
 The host needs `/var/lib/sops-nix/host-key.txt` before activation can decrypt its token. Follow the fleet-key bootstrap below for a new or reflashed host. On an existing host that has never consumed secrets, securely install the decrypted fleet key there as root with mode `0600` before the first metrics deployment. The two UPS hosts previously had no SOPS payloads, so check with `ssh kelchm@<hostname>.local sudo test -s /var/lib/sops-nix/host-key.txt` during their rollout. If missing, install the existing fleet key (do not rotate it):
 
@@ -141,6 +146,12 @@ network_ups_tools_battery_runtime{instance="ups-compute-rack"}
 
 Expect `pi-node` and `pi-vmagent` on every enrolled Pi and `pi-nut` on UPS hosts. Runtime is reported in seconds only when the UPS driver supplies it. Replace the instance for another host; no scrape-config edit is needed.
 
+## ADS-B receiver
+
+`adsb-office` replaces a 2020 PiAware SD image on the same Pi 3B and RTL-SDR, with everything running natively: `dump1090-fa` from nixpkgs decodes, and piaware 11.1 (packaged under `pkgs/` because nixpkgs lacks it) uploads to FlightAware and runs MLAT. `secrets/adsb-office.yaml` holds the existing feeder ID, which keeps the site's stats and history, and the antenna's coordinates, which stay out of this public repo. The gain is set in the host's `default.nix`.
+
+dump1090's network ports listen on loopback only; the nixpkgs module isolates its network entirely, so the role turns that off for piaware's sake. The SkyAware map is at `http://adsb-office.local:8080/`. After deploying, check `systemctl status dump1090-fa piaware`, look for `logged in to FlightAware` and, after a few minutes, `synchronized with N nearby receivers` in `journalctl -u piaware`, and confirm `/proc/<dump1090 pid>/cmdline` carries numeric `--lat`/`--lon` values. The FlightAware stats page should show the site reporting again within a few minutes. This is the fleet's first Pi 3, so also confirm `memory` is listed in `/sys/fs/cgroup/cgroup.controllers`; if it isn't, add `cgroup_enable=memory` as the Pi 5 hosts do.
+
 ## Prerequisites
 
 - macOS dev machine with [Nix installed](https://github.com/NixOS/experimental-nix-installer).
@@ -182,7 +193,7 @@ Builds on the Mac's linux-builder VM, ships only the diff to the Pi, activates. 
 Same flow either way. Sops works on first boot because the fleet key is on the SD card before the Pi ever runs.
 
 1. **(New host only) create the host module.**
-   - `hosts/<hostname>/default.nix` — imports the hardware module (`modules/hardware/pi-zero-2w.nix` or `pi5.nix`), the role module(s), and `./secrets.nix` if the host consumes any sops secrets. Set `system.stateVersion` to the NixOS release nvmd pins at install time (currently "26.05"); never bump it afterwards.
+   - `hosts/<hostname>/default.nix` — imports the hardware module (`modules/hardware/pi-zero-2w.nix`, `pi3.nix` or `pi5.nix`), the role module(s), and `./secrets.nix` if the host consumes any sops secrets. Set `system.stateVersion` to the NixOS release nvmd pins at install time (currently "26.05"); never bump it afterwards.
    - `hosts/<hostname>/secrets.nix` (only if the host has secrets) — declares `sops.secrets.*` and any `sops.templates.*`. No `sops.age.*` boilerplate; that lives centrally in `modules/sops-host-key.nix`.
    - `secrets/<hostname>.yaml` — `sops secrets/<hostname>.yaml` to create + encrypt. The `secrets/*.yaml` glob in `.sops.yaml` auto-encrypts to user + fleet.
    - Add `<hostname> = mkHost { ... }` to `flake.nix`.
