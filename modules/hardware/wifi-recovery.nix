@@ -42,7 +42,7 @@ let
         {
           iw dev wlan0 link
           ip addr show wlan0
-          wpa_cli -i wlan0 status
+          wpa_cli -p /run/wpa_supplicant/control -i wlan0 status
           journalctl -b -k --since -30min --no-pager
           journalctl -b -u wpa_supplicant -u dhcpcd --since -30min --no-pager
         } > "$f" 2>&1 || true

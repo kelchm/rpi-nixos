@@ -27,27 +27,16 @@
     '';
   };
 
-  # WiFi: both SSID and PSK live in sops (see secrets.nix). The rendered
-  # network={} block gets spliced into wpa_supplicant.conf at activation.
-  # wpa_supplicant doesn't support ext: substitution for SSIDs, hence the
-  # template+include approach rather than the simpler networks.<name>.pskRaw.
+  # WiFi: both SSID and PSK live in sops (see secrets.nix), rendered into a
+  # file wpa_supplicant includes with -I. wpa_supplicant doesn't support ext:
+  # substitution for SSIDs, hence the template+include approach rather than
+  # the simpler networks.<name>.pskRaw.
   networking.wireless = {
     enable = true;
     extraConfigFiles = [
       config.sops.templates."wpa_supplicant-network.conf".path
     ];
   };
-
-  # NixOS's networking.wireless module only generates /etc/wpa_supplicant.conf
-  # when `networks.<name>` is non-empty. We use extraConfigFiles instead (so
-  # SSID stays in sops), so we provide the base config ourselves — just the
-  # ctrl_interface + update_config bits wpa_supplicant needs before reading
-  # the -I include files. The network={} block is in the sops-rendered include.
-  environment.etc."wpa_supplicant.conf".text = ''
-    ctrl_interface=DIR=/run/wpa_supplicant GROUP=wheel
-    update_config=1
-    country=US
-  '';
 
   # Make wpa_supplicant wait for sops to render the included network={} block.
   # Without this, supplicant fires at boot before the include file exists,
