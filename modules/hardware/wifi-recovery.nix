@@ -24,7 +24,8 @@ let
       logdir=/var/log/wifi-recovery
       mkdir -p "''${state%/*}" "$logdir"
 
-      gw=$(ip -4 route show default dev wlan0 | awk '{print $3; exit}')
+      # A missing wlan0 (driver never probed) must count as a failure too.
+      gw=$(ip -4 route show default dev wlan0 2>/dev/null | awk '{print $3; exit}') || gw=""
       if [ -n "$gw" ] && ping -c 3 -W 2 -I wlan0 "$gw" >/dev/null 2>&1; then
         if [ -s "$state" ]; then
           echo "wlan0 recovered after $(cat "$state") failed checks"
