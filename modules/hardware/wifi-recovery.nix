@@ -43,6 +43,10 @@ let
         {
           iw dev wlan0 link
           ip addr show wlan0
+          # The hardened daemon only sees /run/wpa_supplicant, so wpa_cli's
+          # reply socket must live there; NixOS creates this dir only for
+          # userControlled setups.
+          mkdir -p /run/wpa_supplicant/client
           wpa_cli -p /run/wpa_supplicant/control -i wlan0 status
           journalctl -b -k --since -30min --no-pager
           journalctl -b -u wpa_supplicant -u dhcpcd --since -30min --no-pager
