@@ -8,7 +8,7 @@ This is **specific to my setup** — hostnames, WiFi network, hardware, location
 
 | Host | Hardware | Role | State |
 |---|---|---|---|
-| `streamer-basement-workbench` | Pi Zero 2 W | AirPlay receiver → PipeWire → USB DAC | Running |
+| `streamer-basement-workbench` | Pi Zero 2 W | AirPlay 2 receiver → PipeWire → USB DAC | Running |
 | `ups-compute-rack` | Pi 5 | NUT server for the compute rack's UPS | Running |
 | `ups-office` | Pi 5 | NUT server for the office UPS (Liebert PSA5, Starlink + T-Mobile gateways) | In progress |
 | `adsb-office` | Pi 3 Model B | ADS-B receiver feeding FlightAware (piaware + MLAT, local SkyAware map) | In progress |
@@ -54,7 +54,7 @@ modules/
     pi5.nix                        nvmd raspberry-pi-5.base + display-vc4 + sd-image
     pi3.nix                        nvmd raspberry-pi-3.base + sd-image, wired DHCP, no KMS
   roles/
-    streamer.nix                   PipeWire (systemWide) + shairport-sync + the pipewire-group fix
+    streamer.nix                   PipeWire (systemWide) + shairport-sync (AirPlay 2, nqptp) + the pipewire-group fix
     ups.nix                        NUT (upsd + upsmon); adds pi-nut metrics on enrolled hosts
     adsb.nix                       dump1090-fa + piaware (feeder ID and location from sops) + SkyAware on :8080
   profiles/
@@ -259,7 +259,8 @@ done
 
 - **Workbench IPv6 discovery** is disabled in its host config: Thread border routers on Main and Guest announce the same on-link IPv6 prefix, but the Pi is reachable from Main only over IPv4. Avahi uses IPv4 announcements with `publish-aaaa-on-ipv4=no` so AirPlay clients do not select an unreachable IPv6 address. Remove both settings only after cross-VLAN IPv6 reachability is established. This does not fix the separate Tailscale route/firewall path to Guest.
 - **brcmfmac options**: nvmd doesn't ship Raspberry Pi OS's `rpi-brcmfmac.conf` (`roamoff=1 feature_disable=0x282000`), so the chip firmware handled roaming and once left the streamer off Wi-Fi for 13 days with the OS still up. `pi-zero-2w.nix` sets the options; `wifi-recovery.nix` is the safety net and writes a snapshot to `/var/log/wifi-recovery/` before each recovery step. The `feature_disable` bits shift between kernels, so re-check it on kernel bumps.
-- **AirPlay 2** on the streamer is blocked on putting the Pi on the same L2 subnet as the AirPlay source. Cross-subnet PTP doesn't reach nqptp. Reverted to AP1, which works.
+- **AirPlay 2 across VLANs** needs the sender's PTP (UDP 319/320) to reach nqptp, which never sends first. IPv4 unicast on those ports crosses Main ↔ Guest in both directions. Keep the Pi's IPv6 address out of mDNS (see above), or senders may aim PTP at an address they can't reach.
+- **No Spotify Connect.** librespot authenticates but Spotify refuses its audio keys (`error audio key 0 1`, librespot-org/librespot#1649), even for long-standing accounts logging in fresh. Spotify's official headless client, Soloist, is the supported route; its builds expire after 90 days and can't be pinned in Nix.
 - **`services.shairport-sync` + `services.pipewire.systemWide`** don't auto-wire the shairport user into the `pipewire` group. Silent EACCES on the PipeWire socket otherwise. We add it manually in `modules/roles/streamer.nix`. NixOS integration gap.
 - **shairport-sync config restart**: NixOS doesn't restart the daemon when only its `/etc/shairport-sync.conf` changes (the unit file is unchanged). We add an explicit `restartTriggers` in the streamer role so deploys reliably re-read the config.
 - **Mac builder VM** defaults to 1 core / 3 GB. Bump it (I use 6 cores / 8 GB) in nix-darwin config or SD image builds take forever.

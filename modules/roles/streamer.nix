@@ -54,9 +54,11 @@
   # resets to driver default (~64% / -23 dB) on every reboot and USB hot-replug.
   hardware.alsa.enablePersistence = true;
 
-  # AirPlay 1 receiver. AP1 because AP2 attempt failed at the PTP-sync stage
-  # — see project_airplay2_pending memory for details. Revisit when the Pi
-  # can be put on the same L2 subnet as the AirPlay source devices.
+  # AirPlay 2 receiver (AirPlay 1 senders still work). AP2 times playback
+  # against the sender's PTP clock via nqptp, which only listens: the sender
+  # must reach it on UDP 319/320. That works across VLANs over IPv4 (probed
+  # 2026-10-24); the June 2026 failure was most likely the sender chasing the
+  # Pi's IPv6 address, which the host config now keeps out of mDNS.
   #
   # Volume policy: let the AirPlay sender's slider drive output via
   # shairport-sync's internal software attenuator. dasl_tapered maps the
@@ -68,12 +70,27 @@
   # is for setting absolute max output once and not touching.
   services.shairport-sync = {
     enable = true;
+    package = pkgs.shairport-sync-airplay2;
     openFirewall = true;
     settings.general = {
       output_backend = "pipewire"; # shairport-sync 5 renamed this from "pw"
       ignore_volume_control = "no";
       volume_control_profile = "dasl_tapered";
     };
+  };
+
+  # nqptp ships its own unit (DynamicUser + CAP_NET_BIND_SERVICE for 319/320).
+  systemd.packages = [ pkgs.nqptp ];
+  systemd.services.nqptp.wantedBy = [ "multi-user.target" ];
+
+  networking.firewall = {
+    # 7000: AP2 RTSP. 319/320: PTP to nqptp.
+    allowedTCPPorts = [ 7000 ];
+    allowedUDPPorts = [ 319 320 ];
+    # AP2 binds its event, data and control ports with port 0, so they land
+    # anywhere in the kernel's ephemeral range; nothing else listens there.
+    allowedTCPPortRanges = [ { from = 32768; to = 60999; } ];
+    allowedUDPPortRanges = [ { from = 32768; to = 60999; } ];
   };
 
   # NixOS integration gap: services.shairport-sync + services.pipewire.systemWide
@@ -89,9 +106,11 @@
   # NixOS doesn't re-fingerprint the unit and the running daemon keeps the
   # old config in memory until manual restart. Restart on config-file change
   # so deploys are point-and-go.
-  systemd.services.shairport-sync.restartTriggers = [
-    config.environment.etc."shairport-sync.conf".source
-  ];
+  systemd.services.shairport-sync = {
+    restartTriggers = [ config.environment.etc."shairport-sync.conf".source ];
+    requires = [ "nqptp.service" ];
+    after = [ "nqptp.service" ];
+  };
 
   # WiFi power-save OFF on wlan0. This is a mains-powered receiver, so the
   # power-save win is nil — and DTIM buffering adds RX-latency spikes that can
