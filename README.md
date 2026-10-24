@@ -27,7 +27,7 @@ Everything on [`nvmd/nixos-raspberrypi`](https://github.com/nvmd/nixos-raspberry
 - nvmd is the maintained community fork. Covers Pi 02/3/4/5 + CM4/CM5, ships a working Cachix at `nixos-raspberrypi.cachix.org`, and the uConsole flake builds on top of it.
 - I tried per-board fragmentation (stock sd-image for Pi Zero 2 W, nvmd for Pi 5) and the version-skew pain in a single flake was worse than the bus-factor of one community fork.
 
-**Pin discipline:** tagged release only, never `main`. Currently `v1.20260317.0` (the pin nixos-uconsole uses; `v1.20260517.0` broke CM4 display and got reverted).
+**Pin discipline:** tagged release only, never `main`. Currently `v1.20260801.0` (nixos-26.05). nixos-uconsole was on `v1.20260317.0` because `v1.20260517.0` broke CM4 display; re-check that before adding the uConsole.
 
 Worth revisiting when BCM2712 PCIe + RP1 patches land in mainline (~6.19–6.21) — at that point stock-everywhere becomes viable.
 

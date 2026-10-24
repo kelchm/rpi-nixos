@@ -26,6 +26,8 @@
       '';
       owner = "wpa_supplicant";
       mode = "0400";
+      # A rotated PSK changes only this file, not the unit, so restart it here.
+      restartUnits = [ "wpa_supplicant.service" ];
     };
   };
 }
