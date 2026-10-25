@@ -2,12 +2,11 @@
   description = "NixOS configurations for Raspberry Pi devices";
 
   inputs = {
-    # Top-level nixpkgs only used for sops-nix follows + tooling. The actual
-    # NixOS systems are built against nvmd's pinned nixpkgs (currently 26.05).
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
+    # sops-nix's module builds from each host's pkgs. Only its own flake
+    # outputs use this nixpkgs, so share nvmd's instead of locking another.
     sops-nix = {
       url = "github:Mic92/sops-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs.follows = "nixos-raspberrypi/nixpkgs";
     };
 
     # Unified upstream for ALL Pi hosts (see memory/project_upstream_strategy.md).
@@ -36,7 +35,7 @@
   # Without that, the VM rebuilds Pi kernels from source even when nvmd has
   # them cached (~4-hour kernel rebuild).
 
-  outputs = { self, nixpkgs, sops-nix, nixos-raspberrypi, ... }:
+  outputs = { self, sops-nix, nixos-raspberrypi, ... }:
     let
       # All hosts use nvmd's lib so its overlays (raspberrypi-utils, vendor
       # kernel, etc.) get applied to pkgs. nvmd defaults nixpkgs to its own
