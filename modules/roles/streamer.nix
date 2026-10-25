@@ -1,4 +1,14 @@
 { config, pkgs, ... }:
+let
+  # Vendored from nixpkgs master: 26.05's shairport-sync 5.0.4 lacks the
+  # pre-auth AirPlay 2 fixes in 5.5+, and 5.6 needs nqptp 1.2.9. Both decode
+  # ALAC with FFmpeg; Avahi is the only mDNS backend.
+  nqptp = pkgs.callPackage ../../pkgs/nqptp.nix { };
+  shairport-sync = pkgs.callPackage ../../pkgs/shairport-sync.nix {
+    enableAirplay2 = true;
+    enableTinySVCmDNS = false;
+  };
+in
 {
   # ALSA diagnostics — only relevant for hosts that actually have audio hw.
   environment.systemPackages = with pkgs; [ alsa-utils ];
@@ -54,9 +64,11 @@
   # resets to driver default (~64% / -23 dB) on every reboot and USB hot-replug.
   hardware.alsa.enablePersistence = true;
 
-  # AirPlay 1 receiver. AP1 because AP2 attempt failed at the PTP-sync stage
-  # — see project_airplay2_pending memory for details. Revisit when the Pi
-  # can be put on the same L2 subnet as the AirPlay source devices.
+  # AirPlay 2 receiver (AirPlay 1 senders still work). AP2 times playback
+  # against the sender's PTP clock via nqptp, which only listens: the sender
+  # must reach it on UDP 319/320. That works across VLANs over IPv4 (probed
+  # 2026-10-24); the June 2026 failure was most likely the sender chasing the
+  # Pi's IPv6 address, which the host config now keeps out of mDNS.
   #
   # Volume policy: let the AirPlay sender's slider drive output via
   # shairport-sync's internal software attenuator. dasl_tapered maps the
@@ -68,12 +80,38 @@
   # is for setting absolute max output once and not touching.
   services.shairport-sync = {
     enable = true;
+    package = shairport-sync;
     openFirewall = true;
     settings.general = {
       output_backend = "pipewire"; # shairport-sync 5 renamed this from "pw"
       ignore_volume_control = "no";
       volume_control_profile = "dasl_tapered";
     };
+  };
+
+  # nqptp ships its own unit (DynamicUser + CAP_NET_BIND_SERVICE for 319/320)
+  # but no Restart=, so a crash would leave AP2 down until someone noticed.
+  systemd.packages = [ nqptp ];
+  systemd.services.nqptp = {
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Restart = "on-failure";
+      RestartSec = 2;
+    };
+    # shairport-sync maps nqptp's shared memory once at startup, and
+    # DynamicUser removes that segment whenever nqptp stops. So shairport-sync
+    # must stop with nqptp (bindsTo, below) and come back once it's up again.
+    upholds = [ "shairport-sync.service" ];
+  };
+
+  networking.firewall = {
+    # 7000: AP2 RTSP. 319/320: PTP to nqptp.
+    allowedTCPPorts = [ 7000 ];
+    allowedUDPPorts = [ 319 320 ];
+    # AP2 binds its event, data and control ports with port 0, so they land
+    # anywhere in the kernel's ephemeral range; nothing else listens there.
+    allowedTCPPortRanges = [ { from = 32768; to = 60999; } ];
+    allowedUDPPortRanges = [ { from = 32768; to = 60999; } ];
   };
 
   # NixOS integration gap: services.shairport-sync + services.pipewire.systemWide
@@ -89,9 +127,11 @@
   # NixOS doesn't re-fingerprint the unit and the running daemon keeps the
   # old config in memory until manual restart. Restart on config-file change
   # so deploys are point-and-go.
-  systemd.services.shairport-sync.restartTriggers = [
-    config.environment.etc."shairport-sync.conf".source
-  ];
+  systemd.services.shairport-sync = {
+    restartTriggers = [ config.environment.etc."shairport-sync.conf".source ];
+    bindsTo = [ "nqptp.service" ];
+    after = [ "nqptp.service" ];
+  };
 
   # WiFi power-save OFF on wlan0. This is a mains-powered receiver, so the
   # power-save win is nil — and DTIM buffering adds RX-latency spikes that can
