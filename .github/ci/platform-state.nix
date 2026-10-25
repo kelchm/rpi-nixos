@@ -17,7 +17,7 @@ in
     {
       kernel = kernel.drvPath;
       kernelModules = kernel.modules.outPath;
-      deviceTrees = "${kernel}/dtbs";
+      deviceTrees = toString config.hardware.deviceTree.package;
       useGenerationDeviceTree = config.boot.loader.raspberry-pi.useGenerationDeviceTree;
       bootloader = config.boot.loader.raspberry-pi.bootloader;
       extraModules = map (package: package.drvPath) config.boot.extraModulePackages;

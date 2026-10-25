@@ -206,9 +206,9 @@ Passing host `nixpkgs` to nvmd's `lib.nixosSystem` preserves its cached kernel a
 
 The initrd, systemd and other userspace still change during OS updates. CI doesn't build whole systems or test hardware. Before merging, build affected hosts and canary the update. On the Wi-Fi-only streamer, use the deploy command with `test` before `switch`; `test` leaves the boot default unchanged. Platform changes additionally need reboot tests on the affected boards. Merging a PR does not deploy it.
 
-NixOS release changes (for example 26.05 → 26.11) are coordinated manual changes to the host channel and a compatible Pi release. Keep existing hosts' `system.stateVersion` unchanged.
+NixOS release changes (for example 26.05 → 26.11) are coordinated manual changes to the host channel and a compatible Pi release. A Dependabot Pi tag PR that moves nvmd's nested nixpkgs to a newer release is part of this coordinated change; hold it until the host channel moves too. In `flake.lock`, check `nixos-raspberrypi` → `nixpkgs` → `original.ref`. Keep existing hosts' `system.stateVersion` unchanged.
 
-Renovate needs app access to this repository. Dependabot reads `.github/dependabot.yml` from the default branch. After merging this setup, check the first runs of both bots; their hosted PR creation has not yet been exercised here. Both bots' PRs run normal CI, without the previous custom updater's Actions PR-creation setting or draft handoff protocol.
+Renovate needs app access to this repository. Dependabot reads `.github/dependabot.yml` from the default branch. After merging this setup, check the first runs of both bots; their hosted PR creation has not yet been exercised here. Both bots' PRs run normal CI.
 
 ## Add or reflash a host
 

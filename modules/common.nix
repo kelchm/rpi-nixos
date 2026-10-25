@@ -59,7 +59,6 @@
     tmux
   ];
 
-  # stateVersion is per-host (set in each host's default.nix): the NixOS release
-  # the host was first installed with. All current hosts were installed on 25.11,
-  # so they stay "25.11" across nvmd release bumps; bump only on reinstall.
+  # stateVersion is the per-host install release, set in each host's default.nix.
+  # Keep it unchanged when updating userspace or the Pi platform.
 }

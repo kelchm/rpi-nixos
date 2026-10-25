@@ -10,7 +10,8 @@ in
   boot.loader.raspberry-pi.ubootPackage = lib.mkDefault platform.ubootRaspberryPi_64bit;
   nixpkgs.overlays = [ (_: _: { raspberrypiWirelessFirmware = wirelessFirmware; }) ];
 
-  # Prefer these files over overlapping generic firmware, both by package
-  # priority and by order. CI checks the contents of the resulting tree.
+  # Prefer these files over overlapping generic firmware. mkBefore makes hiPrio
+  # stick: buildEnv keeps the first entry's priority when all-firmware.nix lists
+  # the same package. CI checks the contents of the resulting tree.
   hardware.firmware = lib.mkBefore [ (lib.hiPrio wirelessFirmware) ];
 }
