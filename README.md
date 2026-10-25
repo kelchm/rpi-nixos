@@ -22,13 +22,13 @@ PoE available → Pi 5. No PoE / wall-wart appliance → Pi Zero 2 W (2.4 GHz Wi
 
 ## Upstream
 
-Everything on [`nvmd/nixos-raspberrypi`](https://github.com/nvmd/nixos-raspberrypi). Reasons:
+All boards use [`nvmd/nixos-raspberrypi`](https://github.com/nvmd/nixos-raspberrypi) for platform support, with a separate stable nixpkgs input for host userspace. Reasons for the shared platform:
 
 - `nix-community/raspberry-pi-nix` is archived (March 2025) and hangs Pi 5 boot on nixos-25.05+ with a `vc4-drm bcm2712_iommu_of_xlate` kernel panic.
 - nvmd is the maintained community fork. Covers Pi 02/3/4/5 + CM4/CM5, ships a working Cachix at `nixos-raspberrypi.cachix.org`, and the uConsole flake builds on top of it.
 - I tried per-board fragmentation (stock sd-image for Pi Zero 2 W, nvmd for Pi 5) and the version-skew pain in a single flake was worse than the bus-factor of one community fork.
 
-**Pin discipline:** tagged release only, never `main`. Currently `v1.20260801.0` (nixos-26.05). nixos-uconsole was on `v1.20260317.0` because `v1.20260517.0` broke CM4 display; re-check that before adding the uConsole.
+**Platform pin discipline:** tagged release only, never `main`. The current pin is in `flake.nix`; Dependabot proposes newer tags (see [Dependency updates](#dependency-updates)). Host userspace follows `nixos-26.05` independently, with exact revisions recorded in `flake.lock`. nixos-uconsole was on `v1.20260317.0` because `v1.20260517.0` broke CM4 display; re-check that before adding the uConsole.
 
 Worth revisiting when BCM2712 PCIe + RP1 patches land in mainline (~6.19–6.21) — at that point stock-everywhere becomes viable.
 
@@ -39,8 +39,13 @@ flake.nix                          one mkHost helper, four hosts today
 flake.lock
 .sops.yaml                         user + fleet recipients, glob creation rule
 .mise.toml                         pins sops + age; sets SOPS_AGE_KEY_FILE
+.renovaterc.json5                  Renovate: routine flake.lock refreshes + Actions/mise pins
 age.key                            user master age private key — gitignored, mirrored in 1Password
 fleet.age                          shared fleet age private key, encrypted to the user master (committed)
+.github/
+  dependabot.yml                   Pi platform tags only, with a seven-day cooldown
+  workflows/ci.yml                 host evaluation + routine platform guard + firmware check
+  ci/                              platform snapshot and merged Wi-Fi firmware check
 secrets/
   <hostname>.yaml                  per-host sops payload, encrypted to user + fleet
 modules/
@@ -49,6 +54,7 @@ modules/
   users.nix                        admin user + authorized keys
   ssh.nix                          OpenSSH hardening
   hardware/
+    platform.nix                   keeps U-Boot and preferred Wi-Fi firmware with nvmd
     pi-zero-2w.nix                 nvmd raspberry-pi-02.base + display-vc4 + sd-image + RPi OS brcmfmac options
     wifi-recovery.nix              escalating self-heal for a wedged wlan0 (supplicant → driver reload → reboot)
     pi5.nix                        nvmd raspberry-pi-5.base + display-vc4 + sd-image
@@ -188,12 +194,28 @@ nix run github:NixOS/nixpkgs/nixpkgs-unstable#nixos-rebuild -- switch \
 
 Builds on the Mac's linux-builder VM, ships only the diff to the Pi, activates. ~1–3 min for a config tweak.
 
+## Dependency updates
+
+- **Routine OS updates:** hosted Renovate refreshes `flake.lock` on weekends. The top-level `nixpkgs` builds every host against `nixos-26.05`; sops-nix follows it. nvmd's tag and its nested nixpkgs stay fixed. Renovate's individual Nix input updates are disabled because its extractor confuses root and nested nixpkgs nodes; lock maintenance runs Nix directly. Renovate also maintains GitHub Actions and mise pins. No updates automerge.
+- **Pi platform updates:** Dependabot updates only `nixos-raspberrypi`, changing its tag and relocking it in one PR. It checks Sundays at 09:00 UTC with a seven-day cooldown. Review the upstream release notes, then build and boot-test one board family at a time before merging. Kernel fixes still require a platform update; expedite urgent fixes manually when the cooldown is inappropriate.
+- **Local packages:** the five packages in `pkgs/` need manual version/hash updates. Keep shairport-sync and nqptp compatible, and check piaware's expected MLAT/helper versions when updating FlightAware packages. Use their update scripts or `nix-update` where available.
+
+Passing host `nixpkgs` to nvmd's `lib.nixosSystem` preserves its cached kernel and GPU firmware outputs. Do not set `nixos-raspberrypi.inputs.nixpkgs.follows`: that would change the package set used to build those outputs. `modules/hardware/platform.nix` also retains nvmd's U-Boot and Wi-Fi firmware, giving its firmware higher package priority and first position ahead of generic firmware. CI verifies the resulting files.
+
+**CI** evaluates all four system derivations and builds a check that compares the effective merged Wi-Fi firmware with nvmd's files, including compression and symlinks. On `renovate/lock-file-maintenance` PRs it also compares the base and candidate platform snapshots: the OS channel, Pi input, kernels/modules, DTB source, bootloader, U-Boot and Wi-Fi/GPU firmware sources must stay fixed. A failure needs investigation rather than merging a routine refresh as a hardware upgrade.
+
+The initrd, systemd and other userspace still change during OS updates. CI doesn't build whole systems or test hardware. Before merging, build affected hosts and canary the update. On the Wi-Fi-only streamer, use the deploy command with `test` before `switch`; `test` leaves the boot default unchanged. Platform changes additionally need reboot tests on the affected boards. Merging a PR does not deploy it.
+
+NixOS release changes (for example 26.05 → 26.11) are coordinated manual changes to the host channel and a compatible Pi release. A Dependabot Pi tag PR that moves nvmd's nested nixpkgs to a newer release is part of this coordinated change; hold it until the host channel moves too. In `flake.lock`, check `nixos-raspberrypi` → `nixpkgs` → `original.ref`. Keep existing hosts' `system.stateVersion` unchanged.
+
+Renovate needs app access to this repository. Dependabot reads `.github/dependabot.yml` from the default branch. After merging this setup, check the first runs of both bots; their hosted PR creation has not yet been exercised here. Both bots' PRs run normal CI.
+
 ## Add or reflash a host
 
 Same flow either way. Sops works on first boot because the fleet key is on the SD card before the Pi ever runs.
 
 1. **(New host only) create the host module.**
-   - `hosts/<hostname>/default.nix` — imports the hardware module (`modules/hardware/pi-zero-2w.nix`, `pi3.nix` or `pi5.nix`), the role module(s), and `./secrets.nix` if the host consumes any sops secrets. Set `system.stateVersion` to the NixOS release nvmd pins at install time (currently "26.05"); never bump it afterwards.
+   - `hosts/<hostname>/default.nix` — imports the hardware module (`modules/hardware/pi-zero-2w.nix`, `pi3.nix` or `pi5.nix`), the role module(s), and `./secrets.nix` if the host consumes any sops secrets. Set `system.stateVersion` to the host's NixOS release at install time (currently "26.05"); never bump it afterwards.
    - `hosts/<hostname>/secrets.nix` (only if the host has secrets) — declares `sops.secrets.*` and any `sops.templates.*`. No `sops.age.*` boilerplate; that lives centrally in `modules/sops-host-key.nix`.
    - `secrets/<hostname>.yaml` — `sops secrets/<hostname>.yaml` to create + encrypt. The `secrets/*.yaml` glob in `.sops.yaml` auto-encrypts to user + fleet.
    - Add `<hostname> = mkHost { ... }` to `flake.nix`.

@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # Renovate owns routine lock refreshes. Only Dependabot moves the Pi tag
+  # and regenerates its lock; no automatic NixOS channel upgrades.
+  - package-ecosystem: nix
+    directory: /
+    allow:
+      - dependency-name: nixos-raspberrypi
+    schedule:
+      interval: weekly
+      day: sunday
+      time: "09:00"
+      timezone: Etc/UTC
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 1
