@@ -25,6 +25,7 @@ in
       uboot = config.boot.loader.raspberry-pi.ubootPackage.drvPath;
       wirelessFirmware = pkgs.raspberrypiWirelessFirmware.drvPath;
       firstFirmwareSource = (builtins.head firmwareSources).drvPath;
+      firstFirmwarePriority = (builtins.head firmwareSources).meta.priority or 5;
     }
   ) flake.nixosConfigurations;
 }

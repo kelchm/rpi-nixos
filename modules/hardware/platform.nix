@@ -10,7 +10,7 @@ in
   boot.loader.raspberry-pi.ubootPackage = lib.mkDefault platform.ubootRaspberryPi_64bit;
   nixpkgs.overlays = [ (_: _: { raspberrypiWirelessFirmware = wirelessFirmware; }) ];
 
-  # linux-firmware can contain overlapping Broadcom files. The first package
-  # wins, so pinning the package alone is insufficient: give it precedence.
-  hardware.firmware = lib.mkBefore [ wirelessFirmware ];
+  # Prefer these files over overlapping generic firmware, both by package
+  # priority and by order. CI checks the contents of the resulting tree.
+  hardware.firmware = lib.mkBefore [ (lib.hiPrio wirelessFirmware) ];
 }
