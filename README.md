@@ -194,13 +194,13 @@ Builds on the Mac's linux-builder VM, ships only the diff to the Pi, activates. 
 
 ## Dependency updates
 
-- **CI** (`.github/workflows/ci.yml`) evaluates every host on each PR and push to `main`. It instantiates each system's derivation, which also catches errors `nix flake check` misses, such as a package nixpkgs no longer has. It builds nothing.
+- **CI** (`.github/workflows/ci.yml`) evaluates every host on each PR and push to `main`. It instantiates each system's derivation, which also catches errors `nix flake check` misses, such as a package nixpkgs no longer has. It doesn't build the systems.
 - **The flake updater** (`.github/workflows/update-flake-inputs.yml`) runs Sundays at 09:00 UTC, or on demand with `gh workflow run update-flake-inputs.yml`. It moves `nixos-raspberrypi` to nvmd's newest stable release (never backwards), runs `nix flake update`, evaluates every host, and opens or refreshes a single draft PR from `update/flake-inputs`. The PR opens even when evaluation fails; its **Nix evaluation** status shows the result and links to the log. A failed run means no PR could be prepared; its log says why.
 - **Renovate** (`.renovaterc.json5`, via the hosted app) updates the GitHub Actions pins and the mise tools on weekends. Its Nix manager stays off: it can't move a release tag and relock in one PR.
 
 The hosts build against nvmd's pinned nixpkgs, so their packages only move with an nvmd release.
 
-The updater owns its draft and rewrites it on each run. To take an update over, for example to fix an incompatible release, mark the PR ready for review: from then on the updater leaves it alone, CI runs, and you can push to the branch. GitHub also shows *Approve workflows to run* on the updater's PRs; that's optional, since the status already reports the evaluation.
+The updater owns its draft and rewrites it on each run. To take an update over, for example to fix an incompatible release, mark the PR ready for review: while it stays that way, the updater leaves it alone, CI runs, and you can push to the branch. Closing the PR or converting it back to a draft hands the branch back, and the next run starts over from `main`; to hold an update back, leave its PR open and ready for review. GitHub also shows *Approve workflows to run* on the updater's PRs; that's optional, since the status already reports the evaluation.
 
 Evaluation doesn't build kernels or images, or test hardware. Before merging an update, build the affected hosts on the linux-builder and check boot, Wi-Fi, audio and UPS behavior on a Pi.
 

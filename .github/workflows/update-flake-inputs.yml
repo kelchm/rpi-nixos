@@ -61,7 +61,7 @@ jobs:
           $changes
           ~~~
 
-          The **Nix evaluation** status shows whether every host still evaluates and links to [this run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) for any errors. Evaluation builds nothing: build the affected hosts and test them on a Pi before merging.
+          The **Nix evaluation** status shows whether every host still evaluates and links to [this run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) for any errors. Evaluation doesn't build the systems, so build the affected hosts and test them on a Pi before merging.
 
           The weekly flake updater owns this draft and rewrites it on each run. Mark it ready for review to take it over: the updater then leaves it alone, and CI runs. GitHub's *Approve workflows to run* prompt is optional; approving it just runs CI sooner.
           EOF
