@@ -1,4 +1,14 @@
 { config, pkgs, ... }:
+let
+  # Vendored from nixpkgs master: 26.05's shairport-sync 5.0.4 lacks the
+  # pre-auth AirPlay 2 fixes in 5.5+, and 5.6 needs nqptp 1.2.9. Both decode
+  # ALAC with FFmpeg; Avahi is the only mDNS backend.
+  nqptp = pkgs.callPackage ../../pkgs/nqptp.nix { };
+  shairport-sync = pkgs.callPackage ../../pkgs/shairport-sync.nix {
+    enableAirplay2 = true;
+    enableTinySVCmDNS = false;
+  };
+in
 {
   # ALSA diagnostics — only relevant for hosts that actually have audio hw.
   environment.systemPackages = with pkgs; [ alsa-utils ];
@@ -70,7 +80,7 @@
   # is for setting absolute max output once and not touching.
   services.shairport-sync = {
     enable = true;
-    package = pkgs.shairport-sync-airplay2;
+    package = shairport-sync;
     openFirewall = true;
     settings.general = {
       output_backend = "pipewire"; # shairport-sync 5 renamed this from "pw"
@@ -79,9 +89,20 @@
     };
   };
 
-  # nqptp ships its own unit (DynamicUser + CAP_NET_BIND_SERVICE for 319/320).
-  systemd.packages = [ pkgs.nqptp ];
-  systemd.services.nqptp.wantedBy = [ "multi-user.target" ];
+  # nqptp ships its own unit (DynamicUser + CAP_NET_BIND_SERVICE for 319/320)
+  # but no Restart=, so a crash would leave AP2 down until someone noticed.
+  systemd.packages = [ nqptp ];
+  systemd.services.nqptp = {
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Restart = "on-failure";
+      RestartSec = 2;
+    };
+    # shairport-sync maps nqptp's shared memory once at startup, and
+    # DynamicUser removes that segment whenever nqptp stops. So shairport-sync
+    # must stop with nqptp (bindsTo, below) and come back once it's up again.
+    upholds = [ "shairport-sync.service" ];
+  };
 
   networking.firewall = {
     # 7000: AP2 RTSP. 319/320: PTP to nqptp.
@@ -108,7 +129,7 @@
   # so deploys are point-and-go.
   systemd.services.shairport-sync = {
     restartTriggers = [ config.environment.etc."shairport-sync.conf".source ];
-    requires = [ "nqptp.service" ];
+    bindsTo = [ "nqptp.service" ];
     after = [ "nqptp.service" ];
   };
 

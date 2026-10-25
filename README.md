@@ -60,7 +60,7 @@ modules/
   profiles/
     debug.nix                      opt-in: HDMI autologin + persistent journal (import on hosts being debugged)
     metrics.nix                    opt-in: loopback node-exporter + vmagent, SOPS token, bounded push queue
-pkgs/                              software nixpkgs lacks: piaware, tcllauncher, mlat-client
+pkgs/                              software nixpkgs lacks (piaware, tcllauncher, mlat-client) or ships too old (shairport-sync, nqptp)
 hosts/
   <hostname>/
     default.nix                    imports hardware + role + optional profiles; sets hostname-specific bits
@@ -260,6 +260,7 @@ done
 - **Workbench IPv6 discovery** is disabled in its host config: Thread border routers on Main and Guest announce the same on-link IPv6 prefix, but the Pi is reachable from Main only over IPv4. Avahi uses IPv4 announcements with `publish-aaaa-on-ipv4=no` so AirPlay clients do not select an unreachable IPv6 address. Remove both settings only after cross-VLAN IPv6 reachability is established. This does not fix the separate Tailscale route/firewall path to Guest.
 - **brcmfmac options**: nvmd doesn't ship Raspberry Pi OS's `rpi-brcmfmac.conf` (`roamoff=1 feature_disable=0x282000`), so the chip firmware handled roaming and once left the streamer off Wi-Fi for 13 days with the OS still up. `pi-zero-2w.nix` sets the options; `wifi-recovery.nix` is the safety net and writes a snapshot to `/var/log/wifi-recovery/` before each recovery step. The `feature_disable` bits shift between kernels, so re-check it on kernel bumps.
 - **AirPlay 2 across VLANs** needs the sender's PTP (UDP 319/320) to reach nqptp, which never sends first. IPv4 unicast on those ports crosses Main ↔ Guest in both directions. Keep the Pi's IPv6 address out of mDNS (see above), or senders may aim PTP at an address they can't reach.
+- **shairport-sync and nqptp are vendored** in `pkgs/` from nixpkgs master (5.6.1 and 1.2.9). nixos-26.05's 5.0.4 lacks the pre-auth AirPlay 2 fixes in 5.5+, and 5.6 needs nqptp 1.2.9 (shared-memory interface smi11), so bump them together and drop both once the release catches up.
 - **No Spotify Connect.** librespot authenticates but Spotify refuses its audio keys (`error audio key 0 1`, librespot-org/librespot#1649), even for long-standing accounts logging in fresh. Spotify's official headless client, Soloist, is the supported route; its builds expire after 90 days and can't be pinned in Nix.
 - **`services.shairport-sync` + `services.pipewire.systemWide`** don't auto-wire the shairport user into the `pipewire` group. Silent EACCES on the PipeWire socket otherwise. We add it manually in `modules/roles/streamer.nix`. NixOS integration gap.
 - **shairport-sync config restart**: NixOS doesn't restart the daemon when only its `/etc/shairport-sync.conf` changes (the unit file is unchanged). We add an explicit `restartTriggers` in the streamer role so deploys reliably re-read the config.
