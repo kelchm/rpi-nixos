@@ -28,7 +28,7 @@ Everything on [`nvmd/nixos-raspberrypi`](https://github.com/nvmd/nixos-raspberry
 - nvmd is the maintained community fork. Covers Pi 02/3/4/5 + CM4/CM5, ships a working Cachix at `nixos-raspberrypi.cachix.org`, and the uConsole flake builds on top of it.
 - I tried per-board fragmentation (stock sd-image for Pi Zero 2 W, nvmd for Pi 5) and the version-skew pain in a single flake was worse than the bus-factor of one community fork.
 
-**Pin discipline:** tagged release only, never `main`. Currently `v1.20260801.0` (nixos-26.05). nixos-uconsole was on `v1.20260317.0` because `v1.20260517.0` broke CM4 display; re-check that before adding the uConsole.
+**Pin discipline:** tagged release only, never `main`. The current pin is in `flake.nix`; the weekly flake updater proposes each new release (see [Dependency updates](#dependency-updates)). nixos-uconsole was on `v1.20260317.0` because `v1.20260517.0` broke CM4 display; re-check that before adding the uConsole.
 
 Worth revisiting when BCM2712 PCIe + RP1 patches land in mainline (~6.19–6.21) — at that point stock-everywhere becomes viable.
 
@@ -39,8 +39,12 @@ flake.nix                          one mkHost helper, four hosts today
 flake.lock
 .sops.yaml                         user + fleet recipients, glob creation rule
 .mise.toml                         pins sops + age; sets SOPS_AGE_KEY_FILE
+.renovaterc.json5                  Renovate: GitHub Actions pins + mise tools
 age.key                            user master age private key — gitignored, mirrored in 1Password
 fleet.age                          shared fleet age private key, encrypted to the user master (committed)
+.github/workflows/
+  ci.yml                           evaluates every host on PRs and pushes to main
+  update-flake-inputs.yml          weekly draft PR: newest nvmd release + flake.lock refresh
 secrets/
   <hostname>.yaml                  per-host sops payload, encrypted to user + fleet
 modules/
@@ -187,6 +191,20 @@ nix run github:NixOS/nixpkgs/nixpkgs-unstable#nixos-rebuild -- switch \
 ```
 
 Builds on the Mac's linux-builder VM, ships only the diff to the Pi, activates. ~1–3 min for a config tweak.
+
+## Dependency updates
+
+- **CI** (`.github/workflows/ci.yml`) evaluates every host on each PR and push to `main`. It instantiates each system's derivation, which also catches errors `nix flake check` misses, such as a package nixpkgs no longer has. It builds nothing.
+- **The flake updater** (`.github/workflows/update-flake-inputs.yml`) runs Sundays at 09:00 UTC, or on demand with `gh workflow run update-flake-inputs.yml`. It moves `nixos-raspberrypi` to nvmd's newest stable release (never backwards), runs `nix flake update`, evaluates every host, and opens or refreshes a single draft PR from `update/flake-inputs`. The PR opens even when evaluation fails; its **Nix evaluation** status shows the result and links to the log. A failed run means no PR could be prepared; its log says why.
+- **Renovate** (`.renovaterc.json5`, via the hosted app) updates the GitHub Actions pins and the mise tools on weekends. Its Nix manager stays off: it can't move a release tag and relock in one PR.
+
+The hosts build against nvmd's pinned nixpkgs, so their packages only move with an nvmd release.
+
+The updater owns its draft and rewrites it on each run. To take an update over, for example to fix an incompatible release, mark the PR ready for review: from then on the updater leaves it alone, CI runs, and you can push to the branch. GitHub also shows *Approve workflows to run* on the updater's PRs; that's optional, since the status already reports the evaluation.
+
+Evaluation doesn't build kernels or images, or test hardware. Before merging an update, build the affected hosts on the linux-builder and check boot, Wi-Fi, audio and UPS behavior on a Pi.
+
+The updater needs *Allow GitHub Actions to create and approve pull requests* enabled under Settings → Actions → General, and Renovate needs its app installed on this repository. GitHub disables scheduled workflows in public repositories after 60 days without activity; if that happens, re-enable the updater from the Actions tab.
 
 ## Add or reflash a host
 
