@@ -1,0 +1,7 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: ["config:recommended", "helpers:pinGitHubActionDigests"],
+  // Weekly, like the flake updater. Renovate's Nix manager stays off (its
+  // default): update-flake-inputs.yml owns flake.nix and flake.lock.
+  schedule: ["every weekend"],
+}
