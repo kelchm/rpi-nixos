@@ -2,7 +2,6 @@ name: CI
 
 on:
   pull_request:
-    # ready_for_review: taking over the flake updater's draft runs CI.
     types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
@@ -19,6 +18,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # 31.11.3
       # Instantiating each system catches what `nix flake check` misses, such
       # as a package nixpkgs no longer has. The systems aren't built.
@@ -27,3 +27,24 @@ jobs:
           nix eval --json --accept-flake-config --no-update-lock-file
           .#nixosConfigurations
           --apply 'builtins.mapAttrs (_: host: host.config.system.build.toplevel.drvPath)'
+
+      - name: Keep the Pi platform fixed in routine updates
+        if: github.event_name == 'pull_request' && github.head_ref == 'renovate/lock-file-maintenance'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          base="$RUNNER_TEMP/platform-base"
+          git worktree add --detach "$base" "$BASE_SHA"
+          PLATFORM_FLAKE="$base" nix eval --json --impure --file .github/ci/platform-state.nix \
+            --apply 'state: state { flakePath = builtins.getEnv "PLATFORM_FLAKE"; }' \
+            | jq --sort-keys . > "$RUNNER_TEMP/platform-before.json"
+          PLATFORM_FLAKE="$GITHUB_WORKSPACE" nix eval --json --impure --file .github/ci/platform-state.nix \
+            --apply 'state: state { flakePath = builtins.getEnv "PLATFORM_FLAKE"; }' \
+            | jq --sort-keys . > "$RUNNER_TEMP/platform-after.json"
+          if ! diff -u "$RUNNER_TEMP/platform-before.json" "$RUNNER_TEMP/platform-after.json"; then
+            echo "::error::A routine update changed the NixOS channel or Pi platform. Review it as a separate platform upgrade."
+            exit 1
+          fi
+
+      - name: Verify the effective Pi Wi-Fi firmware
+        run: nix build --no-link --accept-flake-config --no-update-lock-file .#checks.aarch64-linux.wireless-firmware

@@ -2,8 +2,9 @@
   description = "NixOS configurations for Raspberry Pi devices";
 
   inputs = {
-    # Top-level nixpkgs only used for sops-nix follows + tooling. The actual
-    # NixOS systems are built against nvmd's pinned nixpkgs (currently 26.05).
+    # Host userspace follows this stable channel independently of Pi releases.
+    # nvmd keeps its own nixpkgs input for cached kernel/firmware packages;
+    # do not make that input follow this one.
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     sops-nix = {
       url = "github:Mic92/sops-nix";
@@ -38,15 +39,16 @@
 
   outputs = { self, nixpkgs, sops-nix, nixos-raspberrypi, ... }:
     let
-      # All hosts use nvmd's lib so its overlays (raspberrypi-utils, vendor
-      # kernel, etc.) get applied to pkgs. nvmd defaults nixpkgs to its own
-      # pinned input (26.05) — we let it stay there for Cachix kernel hits.
+      # Passing nixpkgs here changes host userspace, without changing the
+      # nixpkgs that builds nvmd's kernel/firmware package outputs.
       mkHost = { hostName, modules }:
         nixos-raspberrypi.lib.nixosSystem {
+          inherit nixpkgs;
           specialArgs = { inherit nixos-raspberrypi; };
           modules = [
             sops-nix.nixosModules.sops
             ./modules/common.nix
+            ./modules/hardware/platform.nix
             ./modules/users.nix
             ./modules/ssh.nix
             { networking.hostName = hostName; }
@@ -71,5 +73,10 @@
           modules = [ ./hosts/adsb-office ];
         };
       };
+
+      checks.aarch64-linux.wireless-firmware =
+        import ./.github/ci/wireless-firmware.nix {
+          host = self.nixosConfigurations.streamer-basement-workbench;
+        };
     };
 }

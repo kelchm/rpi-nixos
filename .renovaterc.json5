@@ -1,7 +1,20 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: ["config:recommended", "helpers:pinGitHubActionDigests"],
-  // Weekly, like the flake updater. Renovate's Nix manager stays off (its
-  // default): update-flake-inputs.yml owns flake.nix and flake.lock.
+  // Nix lock maintenance refreshes host nixpkgs and sops-nix. The tagged Pi
+  // platform and its nested inputs stay at the versions in nvmd's lock file.
   schedule: ["every weekend"],
+  automerge: false,
+  nix: { enabled: true },
+  lockFileMaintenance: {
+    enabled: true,
+    schedule: ["every weekend"],
+  },
+  packageRules: [{
+    // Native extraction confuses root nixpkgs with nvmd's nested node.
+    // Maintenance runs Nix directly; disable individual input/channel bumps.
+    matchManagers: ["nix"],
+    matchUpdateTypes: ["!lockFileMaintenance"],
+    enabled: false,
+  }],
 }
