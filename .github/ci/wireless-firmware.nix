@@ -17,9 +17,9 @@ pkgs.runCommand "check-pi-wireless-firmware" {
     if [ -f "$target" ]; then
       cmp "$file" "$target"
     elif [ -f "$target.zst" ]; then
-      zstd -dc "$target.zst" | cmp "$file" -
+      zstd -dc < "$target.zst" | cmp "$file" -
     elif [ -f "$target.xz" ]; then
-      xz -dc "$target.xz" | cmp "$file" -
+      xz -dc < "$target.xz" | cmp "$file" -
     else
       echo "Missing firmware: $relative" >&2
       exit 1
