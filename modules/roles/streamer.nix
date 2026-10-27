@@ -87,10 +87,12 @@ in
       ignore_volume_control = "no";
       volume_control_profile = "dasl_tapered";
     };
-    # While playing, log sync error, frames added or dropped, missed packets
-    # and buffer occupancy every 8 seconds (about 450 lines an hour; nothing
-    # when idle), so a dropout or stalled session leaves evidence. The module
-    # already sets log_verbosity = 1.
+    # While playing, log sync error, frames added or dropped, buffer and DAC
+    # queue levels and output frame rate every 8 seconds (about 450 lines an
+    # hour; nothing when idle), so a dropout or stalled session leaves
+    # evidence. Realtime AirPlay 2 and AirPlay 1 streams also report missing
+    # and late packets; buffered AirPlay 2 doesn't. The module already sets
+    # log_verbosity = 1, which adds the debug-only columns.
     settings.diagnostics.statistics = "yes";
   };
 
