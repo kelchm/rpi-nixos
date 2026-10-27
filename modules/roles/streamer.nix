@@ -144,6 +144,11 @@ in
     restartTriggers = [ config.environment.etc."shairport-sync.conf".source ];
     bindsTo = [ "nqptp.service" ];
     after = [ "nqptp.service" ];
+    # Restart in one step after the new units load. Stopping it before
+    # activation (the default) lets nqptp's upholds start it straight back on
+    # the old unit and /etc, so a deploy's shairport-sync changes waited for
+    # the next restart.
+    stopIfChanged = false;
   };
 
   # WiFi power-save OFF on wlan0. This is a mains-powered receiver, so the
