@@ -1,5 +1,5 @@
 # Vendored from nixpkgs master (fbd0c4475cd4d47f2b6e14974df7b4757a1a785f, NixOS/nixpkgs#574221),
-# bumped from 5.6 to 5.6.1. nixos-26.05 ships 5.0.4, which predates the
+# bumped from 5.6 to 5.6.2. nixos-26.05 ships 5.0.4, which predates the
 # pre-auth AirPlay 2 fixes in 5.5/5.5.1. Drop once 26.05 (or the next
 # release we're on) carries >= 5.6.
 {
@@ -61,13 +61,13 @@ in
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "shairport-sync";
-  version = "5.6.1";
+  version = "5.6.2";
 
   src = fetchFromGitHub {
     repo = "shairport-sync";
     owner = "mikebrady";
     tag = finalAttrs.version;
-    hash = "sha256-EvKrd5rj/82nlCk10YBK0jPj99BpXVT4Rhxei0DlSSQ=";
+    hash = "sha256-JiiZLgeYFoZ+Xq6tn1+KqW6Ewo+j+5JmxJ0Wm3dXqoE=";
   };
 
   nativeBuildInputs = [
