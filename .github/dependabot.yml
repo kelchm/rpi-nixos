@@ -23,5 +23,10 @@ updates:
       day: sunday
       time: "09:00"
       timezone: Etc/UTC
+    # Inside the cooldown, Dependabot proposes the newest release outside it,
+    # comparing commits rather than versions: after a manual bump to a fresh
+    # release, that's a downgrade. The package sources, which get urgent fixes
+    # by hand, skip the cooldown.
     cooldown:
       default-days: 7
+      exclude: [shairport-sync, nqptp, piaware, tcllauncher, mlat-client]
