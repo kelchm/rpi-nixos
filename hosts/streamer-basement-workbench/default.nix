@@ -4,6 +4,7 @@
     ../../modules/hardware/pi-zero-2w.nix
     ../../modules/roles/streamer.nix
     ../../modules/profiles/metrics.nix
+    ../../modules/profiles/logs
     ./secrets.nix
   ];
 

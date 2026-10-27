@@ -4,6 +4,7 @@
     ../../modules/hardware/pi5.nix
     ../../modules/roles/ups.nix
     ../../modules/profiles/metrics.nix
+    ../../modules/profiles/logs
   ];
 
   # Installed on 25.11; bump only on deliberate format-and-reinstall.

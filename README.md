@@ -66,7 +66,8 @@ modules/
   profiles/
     debug.nix                      opt-in: HDMI autologin + persistent journal (import on hosts being debugged)
     metrics.nix                    opt-in: loopback node-exporter + vmagent, SOPS token, bounded push queue
-pkgs/                              software nixpkgs lacks (piaware, tcllauncher, mlat-client) or ships too old (shairport-sync, nqptp)
+    logs/                          opt-in: Fluent Bit ships the RAM journal to home-lab's VictoriaLogs with the metrics token
+pkgs/                              software nixpkgs lacks (piaware, tcllauncher, mlat-client) or ships too old (shairport-sync, nqptp, fluent-bit)
 hosts/
   <hostname>/
     default.nix                    imports hardware + role + optional profiles; sets hostname-specific bits
@@ -151,6 +152,21 @@ network_ups_tools_battery_runtime{instance="ups-compute-rack"}
 ```
 
 Expect `pi-node` and `pi-vmagent` on every enrolled Pi and `pi-nut` on UPS hosts. Runtime is reported in seconds only when the UPS driver supplies it. Replace the instance for another host; no scrape-config edit is needed.
+
+## Ship the journal
+
+Import `../../modules/profiles/logs` after the metrics profile; it imports that profile itself and reuses its token. The `fluent-bit` service reads the journal, kernel messages included, and sends OTLP to `https://metrics-ingest.home.kelch.io/insert/opentelemetry/v1/logs`. The host's VMUser in home-lab routes that path to VictoriaLogs and stamps `host.name=<hostname>` and `service.namespace=pi`, so the Pi supplies no identity. Fields, queries and alerts are in the "Host logs" section of home-lab's [logging runbook](https://github.com/kelchm/home-lab/blob/main/docs/runbooks/logging.md#host-logs). All four Pis import it.
+
+`host.lua` is a byte-identical copy of home-lab's `proxmox/monitoring/logs/host.lua`; update it only from there. `fluent-bit.yaml` follows home-lab's and differs only where the Pi forces it: the token is a systemd credential, everything lives in RAM, and reading starts at the head of the journal. nixos-26.05 ships Fluent Bit 5.0.7, so `pkgs/fluent-bit.nix` builds 5.1.5, the version home-lab pins, for its OTLP retry and buffer-limit fixes.
+
+- **RAM only:** it reads only `/run/log/journal`, so journals left on the SD card from before the move to RAM stay unread. Its cursor and its 16 MiB buffer live in `/run/fluent-bit`, the service's runtime directory, which survives restarts and is cleared at boot along with the journal. After a boot it sends the journal from the start; after a restart or deploy it resumes from its cursor. The first deploy sends everything since the last boot.
+- **Gaps:** lines written after the collector stops at shutdown, or not yet delivered when power is lost, are gone, as is the journal itself. Records wait in the buffer while the endpoint is down and arrive with their original timestamps; when the 16 MiB fill, the oldest are dropped. The endpoint rejecting a record, such as for a token it doesn't know, drops it without retrying.
+- **Limits:** `MemoryHigh=48M` and `MemoryMax=64M`. The buffer is tmpfs, so its pages count against these too.
+- **Metrics:** the profile adds a `pi-fluent-bit` job (`127.0.0.1:2020/api/v2/metrics/prometheus`) to vmagent. `fluentbit_output_dropped_records_total{job="pi-fluent-bit"}` should stay 0 and `fluentbit_output_retries_total` flat.
+- **Token rotation:** Fluent Bit reads the token only at start. Editing it here restarts both vmagent and `fluent-bit` on the next deploy; coordinate with home-lab as for metrics, and stop `fluent-bit` on the Pi before the old token stops working.
+- **Debug profile:** `debug.nix` makes the journal persistent, which moves entries out of `/run/log/journal` early in boot. Shipping stops while a host imports it.
+
+After deploying, check `systemctl status fluent-bit`, then query VictoriaLogs for `host.name:=<hostname> | stats by (service.name) count()` and confirm `host.name:=<hostname> (pipeline.normalize_error:* OR pipeline.severity_unmapped:*)` returns nothing.
 
 ## ADS-B receiver
 
