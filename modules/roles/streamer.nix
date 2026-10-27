@@ -87,6 +87,11 @@ in
       ignore_volume_control = "no";
       volume_control_profile = "dasl_tapered";
     };
+    # While playing, log sync error, frames added or dropped, missed packets
+    # and buffer occupancy every 8 seconds (about 450 lines an hour; nothing
+    # when idle), so a dropout or stalled session leaves evidence. The module
+    # already sets log_verbosity = 1.
+    settings.diagnostics.statistics = "yes";
   };
 
   # nqptp ships its own unit (DynamicUser + CAP_NET_BIND_SERVICE for 319/320)
