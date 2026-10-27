@@ -94,6 +94,12 @@ in
     # and late packets; buffered AirPlay 2 doesn't. The module already sets
     # log_verbosity = 1, which adds the debug-only columns.
     settings.diagnostics.statistics = "yes";
+    # At verbosity 1, each line also starts with the seconds since the previous
+    # line, padded to 20 characters. The journal already timestamps every line,
+    # so drop it; this needs pkgs/shairport-sync-log-options.patch to take
+    # effect. The file:line that follows stays: it is short and locates a
+    # warning in shairport-sync's source.
+    settings.diagnostics.log_show_time_since_last_message = "no";
   };
 
   # nqptp ships its own unit (DynamicUser + CAP_NET_BIND_SERVICE for 319/320)

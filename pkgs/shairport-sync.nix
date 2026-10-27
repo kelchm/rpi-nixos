@@ -105,6 +105,11 @@ stdenv.mkDerivation (finalAttrs: {
   ]
   ++ optional (enableDbus || enableMpris) glib;
 
+  # 5.x parses the diagnostics log_show_* settings but never applies them, so
+  # every line keeps the time-since-last-message prefix. Still unfixed upstream
+  # on development (e802689320); drop once a release applies them.
+  patches = [ ./shairport-sync-log-options.patch ];
+
   postPatch = lib.optionalString enableSessionBus ''
     substituteInPlace dbus/dbus-service.c --replace-fail 'G_BUS_TYPE_SYSTEM' 'G_BUS_TYPE_SESSION'
     substituteInPlace dbus/mpris-service.c --replace-fail 'G_BUS_TYPE_SYSTEM' 'G_BUS_TYPE_SESSION'
