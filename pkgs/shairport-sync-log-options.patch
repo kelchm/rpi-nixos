@@ -1,0 +1,15 @@
+--- a/shairport.c
++++ b/shairport.c
+@@ -2864,6 +2864,12 @@
+ #endif
+   // parse arguments into config -- needed to locate pid_dir
+   int audio_arg = parse_options(argc, argv);
++
++  // The diagnostics log_show_* settings are parsed into config but never reach
++  // the logger, which keeps debug_init()'s defaults. Apply them here.
++  set_show_elapsed_time(config.debugger_show_elapsed_time);
++  set_show_relative_time(config.debugger_show_relative_time);
++  set_show_file_and_line(config.debugger_show_file_and_line);
+ 
+   if (display_config_selected != 0) {
+     display_config(argc, argv);
