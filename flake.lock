@@ -31,6 +31,23 @@
         "type": "github"
       }
     },
+    "fluent-bit": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1792554706,
+        "narHash": "sha256-L76MOMlT9xKGwtdnwtA1+lrLa50NnCqCvUdR12X1oao=",
+        "owner": "fluent",
+        "repo": "fluent-bit",
+        "rev": "0039c4f0d1b530bedd8448df2fa4c301d58a5b91",
+        "type": "github"
+      },
+      "original": {
+        "owner": "fluent",
+        "ref": "v5.1.5",
+        "repo": "fluent-bit",
+        "type": "github"
+      }
+    },
     "mlat-client": {
       "flake": false,
       "locked": {
@@ -164,6 +181,7 @@
     },
     "root": {
       "inputs": {
+        "fluent-bit": "fluent-bit",
         "mlat-client": "mlat-client",
         "nixos-raspberrypi": "nixos-raspberrypi",
         "nixpkgs": "nixpkgs_2",

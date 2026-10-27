@@ -25,6 +25,7 @@
     piaware = { url = "github:flightaware/piaware/v11.1"; flake = false; };
     tcllauncher = { url = "github:flightaware/tcllauncher/v1.10"; flake = false; };
     mlat-client = { url = "github:mutability/mlat-client/v0.2.13"; flake = false; };
+    fluent-bit = { url = "github:fluent/fluent-bit/v5.1.5"; flake = false; };
   };
 
   nixConfig = {
@@ -51,7 +52,7 @@
       # locked tag so the two can't drift apart.
       lock = builtins.fromJSON (builtins.readFile ./flake.lock);
       sources = nixpkgs.lib.genAttrs
-        [ "shairport-sync" "nqptp" "piaware" "tcllauncher" "mlat-client" ]
+        [ "shairport-sync" "nqptp" "piaware" "tcllauncher" "mlat-client" "fluent-bit" ]
         (name: {
           src = inputs.${name};
           version = nixpkgs.lib.removePrefix "v"

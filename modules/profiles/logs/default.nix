@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, sources, ... }:
 {
   # Import to send the journal to home-lab's VictoriaLogs. It reuses the
   # metrics profile's token, so identity again comes from VMAuth, and the
@@ -9,7 +9,7 @@
 
   services.fluent-bit = {
     enable = true;
-    package = pkgs.callPackage ../../../pkgs/fluent-bit.nix { };
+    package = pkgs.callPackage ../../../pkgs/fluent-bit.nix { inherit (sources.fluent-bit) src version; };
     # Both files in one store directory: the config names host.lua relative
     # to itself.
     configurationFile = "${lib.fileset.toSource {
