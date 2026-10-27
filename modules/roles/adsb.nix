@@ -10,9 +10,8 @@ in
 {
   # ADS-B receiver feeding FlightAware: dump1090-fa decodes the RTL-SDR, piaware
   # uploads to FlightAware and runs MLAT, nginx serves the local SkyAware map.
-  # Per-host: gain (services.dump1090-fa.extraArgs) and, in the host's sops
-  # payload, the feeder ID and the antenna's coordinates. The repo is public,
-  # so the location never goes in Nix.
+  # Per-host, in the host's sops payload: the feeder ID and the antenna's
+  # coordinates. The repo is public, so the location never goes in Nix.
 
   # Blacklists the DVB-T driver that would otherwise claim the dongle, and adds
   # the plugdev udev rule the dump1090-fa service uses for USB access.
@@ -47,14 +46,19 @@ in
     };
   };
 
-  # Upstream's defaults (debian/dump1090-fa.default) minus adaptive gain, with
-  # the network listeners kept on loopback.
+  # Upstream's defaults (debian/dump1090-fa.default), with the network
+  # listeners kept on loopback. Adaptive gain starts at maximum and backs off
+  # until the noise floor leaves enough dynamic range, so a dongle with a
+  # built-in amplifier, like the Pro Stick, doesn't sit in overload.
   services.dump1090-fa = {
     enable = true;
     extraArgs = [
       "--quiet"
       "--device-type"
       "rtlsdr"
+      "--gain"
+      "60"
+      "--adaptive-range"
       "--fix"
       "--max-range"
       "360"
