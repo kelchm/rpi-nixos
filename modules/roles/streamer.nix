@@ -1,15 +1,33 @@
-{ config, pkgs, ... }:
+{ config, lib, pkgs, sources, ... }:
 let
   # Vendored from nixpkgs master: 26.05's shairport-sync 5.0.4 lacks the
   # pre-auth AirPlay 2 fixes in 5.5+, and 5.6 needs nqptp 1.2.9. Both decode
   # ALAC with FFmpeg; Avahi is the only mDNS backend.
-  nqptp = pkgs.callPackage ../../pkgs/nqptp.nix { };
+  nqptp = pkgs.callPackage ../../pkgs/nqptp.nix { inherit (sources.nqptp) src version; };
   shairport-sync = pkgs.callPackage ../../pkgs/shairport-sync.nix {
+    inherit (sources.shairport-sync) src version;
     enableAirplay2 = true;
     enableTinySVCmDNS = false;
   };
+
+  # The shared-memory interface version (smiNN) each source compiles in. A
+  # mismatch only shows at runtime: shairport-sync gets no clock from nqptp,
+  # so AirPlay 2 can't play. The assertion below makes it an evaluation error.
+  shmVersion = src:
+    let
+      header = builtins.readFile "${src}/nqptp-shm-structures.h";
+      found = lib.filter (m: m != null)
+        (map (builtins.match "#define NQPTP_SHM_STRUCTURES_VERSION ([0-9]+).*") (lib.splitString "\n" header));
+    in
+    if found == [ ] then throw "no NQPTP_SHM_STRUCTURES_VERSION in ${src}" else lib.head (lib.head found);
 in
 {
+  assertions = [{
+    assertion = shmVersion shairport-sync.src == shmVersion nqptp.src;
+    message = "shairport-sync ${shairport-sync.version} uses nqptp interface smi${shmVersion shairport-sync.src}, "
+      + "but nqptp ${nqptp.version} provides smi${shmVersion nqptp.src}. Update them together.";
+  }];
+
   # ALSA diagnostics — only relevant for hosts that actually have audio hw.
   environment.systemPackages = with pkgs; [ alsa-utils ];
 

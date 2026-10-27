@@ -2,7 +2,8 @@
   lib,
   tcl,
   tclPackages,
-  fetchFromGitHub,
+  src,
+  version,
   openssl,
   coreutils,
   iproute2,
@@ -14,16 +15,10 @@
 
 # FlightAware's ADS-B uploader. Not in nixpkgs. Built the way upstream's
 # piaware_builder does, with tcllauncher copied in as each program's binary.
-tcl.mkTclDerivation rec {
+# The source and version come from the flake's piaware input.
+tcl.mkTclDerivation {
   pname = "piaware";
-  version = "11.1";
-
-  src = fetchFromGitHub {
-    owner = "flightaware";
-    repo = "piaware";
-    tag = "v${version}";
-    hash = "sha256-FRgqz2aZdMrIJXRFtTTc6xdzIGvN8eJ/RrWJd7oD27k=";
-  };
+  inherit src version;
 
   # c_rehash for the bundled CA certificates.
   nativeBuildInputs = [ openssl ];

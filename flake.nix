@@ -17,6 +17,14 @@
     # uConsole flake (when we add it) is a thin layer over this.
     # Pin to a tagged release, NEVER track main/develop.
     nixos-raspberrypi.url = "github:nvmd/nixos-raspberrypi/v1.20260801.0";
+
+    # Sources for pkgs/, pinned to release tags. Dependabot moves a tag and
+    # relocks, and each package takes its version from its tag.
+    shairport-sync = { url = "github:mikebrady/shairport-sync/5.6.2"; flake = false; };
+    nqptp = { url = "github:mikebrady/nqptp/1.2.9"; flake = false; };
+    piaware = { url = "github:flightaware/piaware/v11.1"; flake = false; };
+    tcllauncher = { url = "github:flightaware/tcllauncher/v1.10"; flake = false; };
+    mlat-client = { url = "github:mutability/mlat-client/v0.2.13"; flake = false; };
   };
 
   nixConfig = {
@@ -37,14 +45,25 @@
   # Without that, the VM rebuilds Pi kernels from source even when nvmd has
   # them cached (~4-hour kernel rebuild).
 
-  outputs = { self, nixpkgs, sops-nix, nixos-raspberrypi, ... }:
+  outputs = { self, nixpkgs, sops-nix, nixos-raspberrypi, ... }@inputs:
     let
+      # The pkgs/ sources as { src, version }, with the version read from the
+      # locked tag so the two can't drift apart.
+      lock = builtins.fromJSON (builtins.readFile ./flake.lock);
+      sources = nixpkgs.lib.genAttrs
+        [ "shairport-sync" "nqptp" "piaware" "tcllauncher" "mlat-client" ]
+        (name: {
+          src = inputs.${name};
+          version = nixpkgs.lib.removePrefix "v"
+            lock.nodes.${lock.nodes.${lock.root}.inputs.${name}}.original.ref;
+        });
+
       # Passing nixpkgs here changes host userspace, without changing the
       # nixpkgs that builds nvmd's kernel/firmware package outputs.
       mkHost = { hostName, modules }:
         nixos-raspberrypi.lib.nixosSystem {
           inherit nixpkgs;
-          specialArgs = { inherit nixos-raspberrypi; };
+          specialArgs = { inherit nixos-raspberrypi sources; };
           modules = [
             sops-nix.nixosModules.sops
             ./modules/common.nix

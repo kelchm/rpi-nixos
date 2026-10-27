@@ -1,11 +1,12 @@
-# Vendored from nixpkgs master (fbd0c4475cd4d47f2b6e14974df7b4757a1a785f, NixOS/nixpkgs#574221),
-# bumped from 5.6 to 5.6.2. nixos-26.05 ships 5.0.4, which predates the
-# pre-auth AirPlay 2 fixes in 5.5/5.5.1. Drop once 26.05 (or the next
-# release we're on) carries >= 5.6.
+# Vendored from nixpkgs master (fbd0c4475cd4d47f2b6e14974df7b4757a1a785f, NixOS/nixpkgs#574221).
+# The source and version come from the flake's shairport-sync input.
+# nixos-26.05 ships 5.0.4, which predates the pre-auth AirPlay 2 fixes in
+# 5.5/5.5.1. Drop once 26.05 (or the next release we're on) carries >= 5.6.
 {
   lib,
   stdenv,
-  fetchFromGitHub,
+  src,
+  version,
   autoreconfHook,
   pkg-config,
   openssl,
@@ -27,7 +28,6 @@
   libao,
   libsoundio,
   mosquitto,
-  nix-update-script,
   pipewire,
   soxr,
   sndio,
@@ -61,14 +61,7 @@ in
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "shairport-sync";
-  version = "5.6.2";
-
-  src = fetchFromGitHub {
-    repo = "shairport-sync";
-    owner = "mikebrady";
-    tag = finalAttrs.version;
-    hash = "sha256-JiiZLgeYFoZ+Xq6tn1+KqW6Ewo+j+5JmxJ0Wm3dXqoE=";
-  };
+  inherit src version;
 
   nativeBuildInputs = [
     autoreconfHook
@@ -148,11 +141,6 @@ stdenv.mkDerivation (finalAttrs: {
 
   strictDeps = true;
   __structuredAttrs = true;
-
-  passthru.updateScript = nix-update-script {
-    # ignore -dev tagged releases
-    extraArgs = [ "--version-regex=^([0-9\\.]+)$" ];
-  };
 
   meta = {
     homepage = "https://github.com/mikebrady/shairport-sync";

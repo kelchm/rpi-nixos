@@ -1,21 +1,16 @@
 {
   python3Packages,
-  fetchFromGitHub,
+  src,
+  version,
 }:
 
-# The multilateration client piaware runs as fa-mlat-client. Same tag as
-# FlightAware's piaware_builder uses for piaware 11.1.
-python3Packages.buildPythonApplication rec {
+# The multilateration client piaware runs as fa-mlat-client. Keep its tag on
+# the one FlightAware's piaware_builder pairs with our piaware. The source and
+# version come from the flake's mlat-client input.
+python3Packages.buildPythonApplication {
   pname = "mlat-client";
-  version = "0.2.13";
+  inherit src version;
   pyproject = true;
-
-  src = fetchFromGitHub {
-    owner = "mutability";
-    repo = "mlat-client";
-    tag = "v${version}";
-    hash = "sha256-fSjkEyE8oP9HQlZCAqCjvOchDyNpFqm8qlkMg373/kE=";
-  };
 
   build-system = [ python3Packages.setuptools ];
   # asyncore left the standard library in Python 3.12; FlightAware's own
