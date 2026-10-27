@@ -1,22 +1,17 @@
 {
   tcl,
   tclPackages,
-  fetchFromGitHub,
+  src,
+  version,
   autoreconfHook,
 }:
 
 # FlightAware's Tcl application launcher. A copy named `foo` in bin/ runs
-# ../lib/foo/main.tcl; piaware installs itself that way.
-tcl.mkTclDerivation rec {
+# ../lib/foo/main.tcl; piaware installs itself that way. The source and
+# version come from the flake's tcllauncher input.
+tcl.mkTclDerivation {
   pname = "tcllauncher";
-  version = "1.10";
-
-  src = fetchFromGitHub {
-    owner = "flightaware";
-    repo = "tcllauncher";
-    tag = "v${version}";
-    hash = "sha256-BVrsoczKeBBoM1Q3v6EJY81QwsX6xbUqFkcBb482WH4=";
-  };
+  inherit src version;
 
   nativeBuildInputs = [ autoreconfHook ];
   propagatedBuildInputs = [ tclPackages.tclx ];

@@ -1,8 +1,11 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, sources, ... }:
 let
-  tcllauncher = pkgs.callPackage ../../pkgs/tcllauncher.nix { };
-  mlat-client = pkgs.callPackage ../../pkgs/mlat-client.nix { };
-  piaware = pkgs.callPackage ../../pkgs/piaware.nix { inherit tcllauncher mlat-client; };
+  tcllauncher = pkgs.callPackage ../../pkgs/tcllauncher.nix { inherit (sources.tcllauncher) src version; };
+  mlat-client = pkgs.callPackage ../../pkgs/mlat-client.nix { inherit (sources.mlat-client) src version; };
+  piaware = pkgs.callPackage ../../pkgs/piaware.nix {
+    inherit (sources.piaware) src version;
+    inherit tcllauncher mlat-client;
+  };
 
   sopsFile = ../../secrets + "/${config.networking.hostName}.yaml";
   inherit (config.sops) placeholder;

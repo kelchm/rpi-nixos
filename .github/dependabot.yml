@@ -1,16 +1,33 @@
 version: 2
 updates:
-  # Renovate owns routine lock refreshes. Only Dependabot moves the Pi tag
-  # and regenerates its lock; no automatic NixOS channel upgrades.
+  # Renovate owns routine lock refreshes. Dependabot moves only the tagged
+  # inputs, relocking each: the Pi platform and the sources for pkgs/. No
+  # automatic NixOS channel upgrades.
   - package-ecosystem: nix
     directory: /
     allow:
       - dependency-name: nixos-raspberrypi
+      - dependency-name: shairport-sync
+      - dependency-name: nqptp
+      - dependency-name: piaware
+      - dependency-name: tcllauncher
+      - dependency-name: mlat-client
+      - dependency-name: fluent-bit
+    # Packages built to work together share a PR.
+    groups:
+      airplay:
+        patterns: [shairport-sync, nqptp]
+      flightaware:
+        patterns: [piaware, tcllauncher, mlat-client]
     schedule:
       interval: weekly
       day: sunday
       time: "09:00"
       timezone: Etc/UTC
+    # Inside the cooldown, Dependabot proposes the newest release outside it,
+    # comparing commits rather than versions: after a manual bump to a fresh
+    # release, that's a downgrade. The package sources, which get urgent fixes
+    # by hand, skip the cooldown.
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 1
+      exclude: [shairport-sync, nqptp, piaware, tcllauncher, mlat-client, fluent-bit]

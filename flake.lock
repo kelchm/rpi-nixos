@@ -31,6 +31,40 @@
         "type": "github"
       }
     },
+    "fluent-bit": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1792554706,
+        "narHash": "sha256-L76MOMlT9xKGwtdnwtA1+lrLa50NnCqCvUdR12X1oao=",
+        "owner": "fluent",
+        "repo": "fluent-bit",
+        "rev": "0039c4f0d1b530bedd8448df2fa4c301d58a5b91",
+        "type": "github"
+      },
+      "original": {
+        "owner": "fluent",
+        "ref": "v5.1.5",
+        "repo": "fluent-bit",
+        "type": "github"
+      }
+    },
+    "mlat-client": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1698062022,
+        "narHash": "sha256-fSjkEyE8oP9HQlZCAqCjvOchDyNpFqm8qlkMg373/kE=",
+        "owner": "mutability",
+        "repo": "mlat-client",
+        "rev": "fe70767be859100176983b948140046b6ecdd34a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mutability",
+        "ref": "v0.2.13",
+        "repo": "mlat-client",
+        "type": "github"
+      }
+    },
     "nixos-images": {
       "inputs": {
         "nixos-stable": [
@@ -111,11 +145,68 @@
         "type": "github"
       }
     },
+    "nqptp": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1791974533,
+        "narHash": "sha256-qqDqUFtqJjODxSX7eEE6DObXIE6X0LjxnneVlg6uJaw=",
+        "owner": "mikebrady",
+        "repo": "nqptp",
+        "rev": "ab8fb67483411640fd7f1e193889482f2421c37c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mikebrady",
+        "ref": "1.2.9",
+        "repo": "nqptp",
+        "type": "github"
+      }
+    },
+    "piaware": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1782930369,
+        "narHash": "sha256-FRgqz2aZdMrIJXRFtTTc6xdzIGvN8eJ/RrWJd7oD27k=",
+        "owner": "flightaware",
+        "repo": "piaware",
+        "rev": "8480286b449e88d8446bc56068ef80eb2d8c8c82",
+        "type": "github"
+      },
+      "original": {
+        "owner": "flightaware",
+        "ref": "v11.1",
+        "repo": "piaware",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
+        "fluent-bit": "fluent-bit",
+        "mlat-client": "mlat-client",
         "nixos-raspberrypi": "nixos-raspberrypi",
         "nixpkgs": "nixpkgs_2",
-        "sops-nix": "sops-nix"
+        "nqptp": "nqptp",
+        "piaware": "piaware",
+        "shairport-sync": "shairport-sync",
+        "sops-nix": "sops-nix",
+        "tcllauncher": "tcllauncher"
+      }
+    },
+    "shairport-sync": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1792934624,
+        "narHash": "sha256-JiiZLgeYFoZ+Xq6tn1+KqW6Ewo+j+5JmxJ0Wm3dXqoE=",
+        "owner": "mikebrady",
+        "repo": "shairport-sync",
+        "rev": "0a34fbda83724cc06266aadcf7c88acc8fef4e7d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mikebrady",
+        "ref": "5.6.2",
+        "repo": "shairport-sync",
+        "type": "github"
       }
     },
     "sops-nix": {
@@ -135,6 +226,23 @@
       "original": {
         "owner": "Mic92",
         "repo": "sops-nix",
+        "type": "github"
+      }
+    },
+    "tcllauncher": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1565942738,
+        "narHash": "sha256-BVrsoczKeBBoM1Q3v6EJY81QwsX6xbUqFkcBb482WH4=",
+        "owner": "flightaware",
+        "repo": "tcllauncher",
+        "rev": "191986719758b51d75d2604d5c98193e27d4337d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "flightaware",
+        "ref": "v1.10",
+        "repo": "tcllauncher",
         "type": "github"
       }
     }

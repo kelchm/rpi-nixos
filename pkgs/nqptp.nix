@@ -1,34 +1,25 @@
-# Vendored from nixpkgs master (2aabd8a46fd9261d3cbbc5f95a53a33220aa56f2). shairport-sync 5.6 talks to nqptp
-# over shared-memory interface smi11, which needs nqptp 1.2.9; nixos-26.05
-# ships 1.2.8 (smi10). Keep in lockstep with ./shairport-sync.nix.
+# Vendored from nixpkgs master (2aabd8a46fd9261d3cbbc5f95a53a33220aa56f2). The
+# source and version come from the flake's nqptp input. shairport-sync 5.6
+# talks to nqptp over shared-memory interface smi11, which needs nqptp 1.2.9;
+# nixos-26.05 ships 1.2.8 (smi10). The streamer role checks that the two
+# sources agree.
 {
   lib,
   stdenv,
-  fetchFromGitHub,
+  src,
+  version,
   autoreconfHook,
   pkg-config,
-  gitUpdater,
 }:
 
 stdenv.mkDerivation (finalAttrs: {
-  version = "1.2.9";
   pname = "nqptp";
-
-  src = fetchFromGitHub {
-    owner = "mikebrady";
-    repo = "nqptp";
-    tag = finalAttrs.version;
-    hash = "sha256-qqDqUFtqJjODxSX7eEE6DObXIE6X0LjxnneVlg6uJaw=";
-  };
+  inherit src version;
 
   nativeBuildInputs = [
     autoreconfHook
     pkg-config
   ];
-
-  passthru.updateScript = gitUpdater {
-    ignoredVersions = ".*(-dev|d0)";
-  };
 
   postInstall = ''
     mkdir -p $out/lib/systemd/system
