@@ -32,10 +32,11 @@
   # that retained journal size is NOT the same quantity: only ~52 MB was ever
   # held on disk, so a SystemMaxUse cap would have bounded nothing that mattered.
   #
-  # Durable log history is the central log server's job (home-lab k8s), not this
-  # SD card's. Until that ships, `journalctl -b -1` is unavailable — import
-  # modules/profiles/debug.nix on a host to get persistence back while
-  # investigating. mkDefault so that profile can override it.
+  # Durable log history is the central log server's job (home-lab's
+  # VictoriaLogs, fed by modules/profiles/logs), not this SD card's. Locally,
+  # `journalctl -b -1` is unavailable — import modules/profiles/debug.nix on a
+  # host to get persistence back while investigating. mkDefault so that
+  # profile can override it.
   services.journald.storage = lib.mkDefault "volatile";
   services.journald.extraConfig = ''
     RuntimeMaxUse=16M

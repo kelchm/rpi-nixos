@@ -13,5 +13,9 @@
   # which was a no-op: nixpkgs already defaults services.journald.storage to
   # "persistent", so moving it here in 08ef3e5 changed nothing. Setting the
   # typed option instead means it actually overrides something now.
+  #
+  # The logs profile reads only the RAM journal in /run/log/journal, which
+  # journald empties into /var/log/journal early in boot, so this stops log
+  # shipping while it is imported.
   services.journald.storage = "persistent";
 }
