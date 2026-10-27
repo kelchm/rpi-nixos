@@ -43,7 +43,7 @@ flake.lock
 age.key                            user master age private key — gitignored, mirrored in 1Password
 fleet.age                          shared fleet age private key, encrypted to the user master (committed)
 .github/
-  dependabot.yml                   Pi platform tags only, with a seven-day cooldown
+  dependabot.yml                   tag bumps: Pi platform (seven-day cooldown) + pkgs/ sources
   workflows/ci.yml                 host evaluation + routine platform guard + firmware check
   ci/                              platform snapshot and merged Wi-Fi firmware check
 secrets/
