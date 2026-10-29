@@ -89,6 +89,7 @@
         { targets = [ "10.32.130.1:443" ]; labels = { probe = "gateway-admin"; module = "tcp_connect"; }; }
         { targets = [ "10.32.140.1:443" ]; labels = { probe = "gateway-services"; module = "tcp_connect"; }; }
         { targets = [ "https://auth.home.kelch.io/status" ]; labels = { probe = "kanidm"; module = "http_kanidm_status"; }; }
+        { targets = [ "https://athena.home.kelch.io:5001/" ]; labels = { probe = "athena-dsm"; module = "http_2xx"; }; }
         { targets = [ "https://jellyfin.home.kelch.io/web/" ]; labels = { probe = "jellyfin"; module = "http_2xx"; }; }
         { targets = [ "https://grafana.home.kelch.io/" ]; labels = { probe = "grafana"; module = "http_redirect"; }; }
         { targets = [ "https://home.kelch.io/" ]; labels = { probe = "homepage"; module = "http_401"; }; }

@@ -137,7 +137,7 @@ Healthy delivery normally buffers in RAM. An outage spills to disk, and shutdown
 
 ### Service probes
 
-Only `ups-compute-rack` imports `hosts/ups-compute-rack/probes.nix`. It runs the stock blackbox exporter on `127.0.0.1:9115` and appends `pi-blackbox` and `pi-blackbox-exporter` through the metrics profile’s native scrape configuration. Nine HTTP, TCP, DNS and ICMP probes run every 60 seconds with five-second timeouts. The ingestion token supplies the host identity; `target`, `probe` and `module` distinguish destinations. The other Pis have no probe service or jobs.
+Only `ups-compute-rack` imports `hosts/ups-compute-rack/probes.nix`. It runs the stock blackbox exporter on `127.0.0.1:9115` and appends `pi-blackbox` and `pi-blackbox-exporter` through the metrics profile’s native scrape configuration. Ten HTTP, TCP, DNS and ICMP probes run every 60 seconds with five-second timeouts. The ingestion token supplies the host identity; `target`, `probe` and `module` distinguish destinations. The other Pis have no probe service or jobs.
 
 The exporter has a 32 MiB Go soft limit, `MemoryHigh=48M` and `MemoryMax=64M`. Verify the memory controller before relying on the systemd limits. Probe targets, expected unauthenticated responses, alert ownership and the Pushover drill are documented in home-lab’s [host-monitoring runbook](https://github.com/kelchm/home-lab/blob/main/docs/runbooks/host-monitoring.md#service-probes).
 
