@@ -48,3 +48,6 @@ jobs:
 
       - name: Verify the effective Pi Wi-Fi firmware
         run: nix build --no-link --accept-flake-config --no-update-lock-file .#checks.aarch64-linux.wireless-firmware
+
+      - name: Parse both local NTP server configurations
+        run: nix build --no-link --accept-flake-config --no-update-lock-file .#checks.aarch64-linux.local-ntp

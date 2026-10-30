@@ -44,8 +44,8 @@ age.key                            user master age private key — gitignored, m
 fleet.age                          shared fleet age private key, encrypted to the user master (committed)
 .github/
   dependabot.yml                   tag bumps: Pi platform (seven-day cooldown) + pkgs/ sources
-  workflows/ci.yml                 host evaluation + routine platform guard + firmware check
-  ci/                              platform snapshot and merged Wi-Fi firmware check
+  workflows/ci.yml                 host evaluation + routine platform guard + firmware/config checks
+  ci/                              platform snapshot, merged Wi-Fi firmware and chrony config checks
 secrets/
   <hostname>.yaml                  per-host sops payload, encrypted to user + fleet
 modules/
@@ -62,6 +62,7 @@ modules/
   roles/
     streamer.nix                   PipeWire (systemWide) + shairport-sync (AirPlay 2, nqptp) + the pipewire-group fix
     ups.nix                        NUT (upsd + upsmon); adds pi-nut metrics on enrolled hosts
+    ntp-server.nix                 chrony local NTP service; adds pi-chrony metrics on enrolled hosts
     adsb.nix                       dump1090-fa + piaware (feeder ID and location from sops) + SkyAware on :8080
   profiles/
     debug.nix                      opt-in: HDMI autologin + persistent journal (import on hosts being debugged)
@@ -151,7 +152,37 @@ network_ups_tools_ups_status{instance="ups-compute-rack",flag="OB"}
 network_ups_tools_battery_runtime{instance="ups-compute-rack"}
 ```
 
-Expect `pi-node` and `pi-vmagent` on every enrolled Pi and `pi-nut` on UPS hosts. Runtime is reported in seconds only when the UPS driver supplies it. Replace the instance for another host; no scrape-config edit is needed.
+Expect `pi-node` and `pi-vmagent` on every enrolled Pi, `pi-nut` on UPS hosts, and `pi-chrony` where the time-server role is deployed. Runtime is reported in seconds only when the UPS driver supplies it. Replace the instance for another host; no scrape-config edit is needed.
+
+## Local time servers
+
+The two wired UPS Pis are the intended local NTP servers: `ups-compute-rack` at `10.32.20.111` and `ups-office` at `10.32.20.112`. This configuration is prepared under [home-lab #1031](https://github.com/kelchm/home-lab/issues/1031); it is not yet deployed. Accept both servers before advertising them to clients. Merging this repository deploys nothing.
+
+The shared `ntp-server` role uses stock chrony and disables systemd-timesyncd through the NixOS module, leaving one clock daemon. Its sources are the Starlink dish at `192.168.100.1` and up to four public peers from the NixOS NTP pool. The dish is best effort with no published accuracy guarantee; it has no `prefer` or `trust` override. Ordinary unauthenticated NTP allows the dish to remain usable when the public sources disappear. This trades authentication for that fallback; a sole incorrect dish cannot be cross-checked. `minsources 1` permits one usable source. We omit `local`, which would let the host claim to be a time reference without an upstream; losing all sources still leaves holdover replies while the clock's error estimate grows. The configuration uses normal UTC leap handling, without Google-style leap smear. `rtcsync` preserves the kernel's periodic hardware-clock updates; chrony's own RTC trimming is disabled because the Pi 5 RTC lacks the required update interrupts. See [chrony's source-selection guidance](https://chrony-project.org/faq.html) and the [chrony configuration reference](https://chrony-project.org/doc/4.8/chrony.conf.html).
+
+Only UDP 123 is allowed from Default, Cameras, Main, InfraMgmt, Workloads, Storage, K8sProd and IoT (`10.32.{1,5,10,20,21,25,30,90}.0/24`). Both the host firewall and chrony's ACL enforce that list. Guest, RemoteAdmin, reserved networks and IPv6 clients are excluded. Inter-VLAN gateway rules, DHCP option 42 and Talos clients are separate changes; this role changes none of them. Preserve the existing UniFi WAN2 route to the dish and do not add WAN port forwarding.
+
+The stock chrony exporter listens only on `127.0.0.1:9123`, reads the daemon's Unix socket as the chrony user and disables reverse DNS during scrapes. UDP command port 323 stays disabled. The existing vmagent adds `job="pi-chrony"`; VMAuth supplies the existing `instance` and `platform="pi"` identity. No new token is needed. Central alert rules follow producer acceptance in home-lab.
+
+For an approved rollout, use the normal [deployment procedure](#day-to-day-deploys) with `test` before `switch`, one Pi at a time. Use the fixed management IPs if `.local` does not resolve. Record the old system path for rollback, and inspect the effective service changes before activating. The intended changes are replacing timesyncd with chronyd, starting the exporter, reloading the firewall and restarting vmagent for its new scrape. The stock module also updates timedated, D-Bus configuration and chrony state files. This needs no reboot, UPS service restart or change to existing scrape targets. A host behind main may inherit earlier changes too; compare its running closure before activation. Chrony's stock startup policy permits clock steps over 100 ms during its first three updates; confirm the existing clock is synchronized first.
+
+On each Pi, check:
+
+```sh
+systemctl is-active chronyd prometheus-chrony-exporter vmagent upsd upsmon
+systemctl is-active systemd-timesyncd # expected: inactive
+sudo chronyc waitsync 60 0.1 0 5
+sudo chronyc -n tracking
+sudo chronyc -n sources -v
+curl --fail --silent http://127.0.0.1:9123/metrics | grep -x 'chrony_up 1'
+curl --fail --silent http://127.0.0.1:8429/targets
+```
+
+Require normal leap status, a selected source, reachable dish and public peers, healthy old collectors and unchanged UPS readings. Check stored `chrony_up`, `chrony_tracking_info`, `chrony_sources_state_info`, `chrony_sources_reachability_ratio` and `chrony_sources_last_sample_age_seconds` for both instances. The estimated system-clock error is `abs(chrony_tracking_system_time_seconds) + chrony_tracking_root_dispersion_seconds + 0.5 * chrony_tracking_root_delay_seconds`; this depends on the upstream clock being correct, and is not a calibrated UTC accuracy measurement. `chronyd -p` parses both rendered configurations in CI without contacting sources or changing a clock.
+
+With an empty driftfile, allow about two minutes for initial frequency estimation before client probes. `waitsync` and a healthy-looking tracking report alone do not prove that clients can use the replies. Verify NTP replies from an allowed client with `chronyd -Q -t 15 'server 10.32.20.111 iburst'`, then `.112`; `-Q` measures offset without setting the client clock. Check excluded-source access remains blocked. During the approved source-fallback test, `sudo chronyc offline 192.168.100.1` temporarily excludes the dish; require `^*` on a public source in `sudo chronyc -n sources -v` and an advancing `Ref time` in tracking, then restore all sources with `sudo chronyc online`. To test dish-only selection, temporarily mark all sources offline and bring only `192.168.100.1` online. Require `^*` on that address and an advancing `Ref time`, then restore all sources with `sudo chronyc online`, including after any interrupted check. These simulate source loss; they do not prove operation during a real WAN outage. Client failover with one Pi unavailable follows when clients are configured. Do not claim offline time service until an actual outage is observed.
+
+If acceptance fails, restore the recorded system with `sudo /nix/store/<previous-system>/bin/switch-to-configuration test` before changing the boot default. If already persisted, use the normal previous-generation rollback. Confirm systemd-timesyncd, UPS monitoring, old scrape targets and firewall behavior are restored. Do not change DHCP or other clients while either producer remains unaccepted.
 
 ## Ship the journal
 
@@ -218,7 +249,7 @@ Builds on the Mac's linux-builder VM, ships only the diff to the Pi, activates. 
 
 Passing host `nixpkgs` to nvmd's `lib.nixosSystem` preserves its cached kernel and GPU firmware outputs. Do not set `nixos-raspberrypi.inputs.nixpkgs.follows`: that would change the package set used to build those outputs. `modules/hardware/platform.nix` also retains nvmd's U-Boot and Wi-Fi firmware, giving its firmware higher package priority and first position ahead of generic firmware. CI verifies the resulting files.
 
-**CI** evaluates all four system derivations and builds a check that compares the effective merged Wi-Fi firmware with nvmd's files, including compression and symlinks. On `renovate/lock-file-maintenance` PRs it also compares the base and candidate platform snapshots: the OS channel, Pi input, kernels/modules, DTB source, bootloader, U-Boot and Wi-Fi/GPU firmware sources must stay fixed. A failure needs investigation rather than merging a routine refresh as a hardware upgrade.
+**CI** evaluates all four system derivations, parses both rendered chrony configurations, and builds a check that compares the effective merged Wi-Fi firmware with nvmd's files, including compression and symlinks. On `renovate/lock-file-maintenance` PRs it also compares the base and candidate platform snapshots: the OS channel, Pi input, kernels/modules, DTB source, bootloader, U-Boot and Wi-Fi/GPU firmware sources must stay fixed. A failure needs investigation rather than merging a routine refresh as a hardware upgrade.
 
 The initrd, systemd and other userspace still change during OS updates. CI doesn't build whole systems or test hardware. Before merging, build affected hosts and canary the update. On the Wi-Fi-only streamer, use the deploy command with `test` before `switch`; `test` leaves the boot default unchanged. Platform changes additionally need reboot tests on the affected boards. Merging a PR does not deploy it.
 
