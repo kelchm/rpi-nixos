@@ -7,14 +7,18 @@ in
 {
   services.chrony = {
     enable = true; # The NixOS module also disables systemd-timesyncd.
+    # Pi 5's RTC lacks the update interrupts needed by chrony's RTC driver.
+    # Preserve kernel RTC updates instead of using rtcfile/rtcautotrim.
+    enableRTCTrimming = false;
     servers = [ "192.168.100.1" ];
     extraConfig = ''
       # Up to four public peers cross-check the best-effort dish.
       pool 0.nixos.pool.ntp.org iburst maxsources 4
       # No prefer/trust or NTS requirement: the dish can work alone if WAN
-      # sources disappear. No local directive that invents synchronization.
+      # sources disappear. Omit local; normal holdover is still possible.
       minsources 1
       leapsecmode system
+      rtcsync
       cmdport 0
       ${lib.concatMapStringsSep "\n" (net: "allow ${net}") clients}
     '';
