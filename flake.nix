@@ -98,5 +98,9 @@
         import ./.github/ci/wireless-firmware.nix {
           host = self.nixosConfigurations.streamer-basement-workbench;
         };
+      checks.aarch64-linux.local-ntp =
+        import ./.github/ci/local-ntp.nix {
+          hosts = with self.nixosConfigurations; [ ups-compute-rack ups-office ];
+        };
     };
 }

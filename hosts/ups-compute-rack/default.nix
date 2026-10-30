@@ -3,6 +3,7 @@
   imports = [
     ../../modules/hardware/pi5.nix
     ../../modules/roles/ups.nix
+    ../../modules/roles/ntp-server.nix
     ../../modules/profiles/metrics.nix
     ../../modules/profiles/logs
     ./probes.nix
