@@ -190,6 +190,33 @@ These operator-controlled checks demonstrate public-only and dish-only usability
 
 If acceptance fails, restore the recorded system with `sudo /nix/store/<previous-system>/bin/switch-to-configuration test` before changing the boot default. If already persisted, use the normal previous-generation rollback. Confirm systemd-timesyncd, UPS monitoring, old scrape targets and firewall behavior are restored. Do not change DHCP or other clients while either producer remains unaccepted.
 
+### NTP client on `adsb-office`
+
+`adsb-office` keeps systemd-timesyncd and lists `10.32.20.111`, `10.32.20.112` and then the four NixOS pool names in `services.timesyncd.servers`. This is a static copy of the DHCP option 42 servers, not an integration: the pinned dhcpcd requests the option, but timesyncd only reads [servers learned by systemd-networkd](https://www.freedesktop.org/software/systemd/man/latest/timesyncd.conf.html), and nixpkgs' dhcpcd installs no timesyncd hook. If option 42 changes, update this list too. The pool sits in `NTP=` because `FallbackNTP=` applies only while no other servers are known, so it stays configured but unused.
+
+timesyncd is a single-source client. It uses the first server that answers usably and moves down the list only when that server times out or is rejected; a reply marked unsynchronized, or a root distance over 5 seconds, counts as rejected. It does not return to an earlier server until the current one fails or the service restarts, so after a Pi or pool failover it can stay on the later source. The UPS hosts run chrony and do not use this list, so there is no time loop.
+
+Deploy this host alone, with `test` before `switch`, using its fixed IP. Record the old system first and compare its closure with the new one; a host behind main inherits earlier changes too. This change alone rewrites `/etc/systemd/timesyncd.conf` and restarts `systemd-timesyncd`, with no reboot, DHCP renewal or other service restart.
+
+```sh
+ssh kelchm@10.32.20.121 readlink -f /run/current-system
+nix run github:NixOS/nixpkgs/nixpkgs-unstable#nixos-rebuild -- test \
+  --flake .#adsb-office --target-host kelchm@10.32.20.121 --sudo --accept-flake-config
+```
+
+Configured addresses don't show the client works. Require a fresh background sync, without stepping the clock by hand:
+
+```sh
+timedatectl show-timesync --all    # SystemNTPServers lists the Pis, then the pool; ServerName is .111 or .112
+timedatectl timesync-status        # note Server, Leap (normal) and Packet count
+sudo journalctl -u systemd-timesyncd -b -n 20 --no-pager   # "Contacted time server 10.32.20.11x"
+stat -c %y /run/systemd/timesync/synchronized
+```
+
+Repeat the last three after at least one reported `Poll interval`. Require `Packet count` to rise, the `synchronized` timestamp to advance and `Server` to stay on `.111` or `.112`. On that server, `sudo chronyc -n clients | grep 10.32.20.121` should show its NTP count rising. Also confirm `dump1090-fa`, `piaware`, `dhcpcd`, `vmagent` and `fluent-bit` were not restarted, and that `10.32.20.121` and DNS are unchanged. Then repeat the deploy command with `switch`.
+
+To roll back before persisting, run `sudo /nix/store/<previous-system>/bin/switch-to-configuration test` and confirm `SystemNTPServers` is empty and timesyncd is using the pool again. If already persisted, use the normal previous-generation rollback. Failover to `.112` or the pool is not exercised by this acceptance and remains unverified.
+
 ## Ship the journal
 
 Import `../../modules/profiles/logs` after the metrics profile; it imports that profile itself and reuses its token. The `fluent-bit` service reads the journal, kernel messages included, and sends OTLP to `https://metrics-ingest.home.kelch.io/insert/opentelemetry/v1/logs`. The host's VMUser in home-lab routes that path to VictoriaLogs and stamps `host.name=<hostname>` and `service.namespace=pi`, so the Pi supplies no identity. Fields, queries and alerts are in the "Host logs" section of home-lab's [logging runbook](https://github.com/kelchm/home-lab/blob/main/docs/runbooks/logging.md#host-logs). All four Pis import it.
