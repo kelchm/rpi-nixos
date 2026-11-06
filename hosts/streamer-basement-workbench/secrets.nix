@@ -14,6 +14,11 @@
     # Since 26.05 the daemon runs as the unprivileged wpa_supplicant user and
     # only reads /etc/wpa_supplicant/imperative.conf as its main config, so
     # this file must be owned by that user and carries the globals too.
+    # roamoff=1 (pi-zero-2w.nix) leaves roaming to wpa_supplicant, which
+    # roams only with bgscan: without it the streamer stayed for a day on the
+    # Office AP a floor up, and later on one it heard at -78 dBm with the
+    # Basement AP at -53. bgscan scans every 30 s below -70 dBm and hourly
+    # above it.
     templates."wpa_supplicant-network.conf" = {
       content = ''
         country=US
@@ -22,6 +27,7 @@
         network={
           ssid="${config.sops.placeholder.wifi-ssid}"
           psk=${config.sops.placeholder.wifi-psk}
+          bgscan="simple:30:-70:3600"
         }
       '';
       owner = "wpa_supplicant";
