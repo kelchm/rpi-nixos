@@ -75,24 +75,31 @@ let
       # into a boot, that allocation failed and wlan0 stayed missing until
       # the next reload; dropping the page cache and compacting first took
       # the streamer from 4 such blocks to 86.
+      # Fails if brcmfmac didn't unload, since the chip then wasn't reset.
       reload_driver() {
+        unloaded=0
         mapfile -t holders < <(find /sys/module/brcmfmac/holders -mindepth 1 -printf '%f\n' 2>/dev/null)
-        modprobe -r "''${holders[@]}" brcmfmac || echo "brcmfmac did not unload; the reload may not have reset the chip"
+        modprobe -r "''${holders[@]}" brcmfmac || { echo "brcmfmac did not unload"; unloaded=1; }
         sync
         echo 1 > /proc/sys/vm/drop_caches || true
         echo 1 > /proc/sys/vm/compact_memory || true
         modprobe brcmfmac
+        return "$unloaded"
       }
 
-      # The cursor lives in /run, so the first run after a boot reads the whole boot.
+      # The cursor lives in /run, so the first run after a boot reads the whole
+      # boot. A watchdog stays pending until a reload has unloaded the driver.
+      pending="''${state%/*}/watchdog-pending"
       fired=$(journalctl -b -k --cursor-file="''${state%/*}/kernel-cursor" --grep "PSM's watchdog has fired" -o cat --no-pager || true)
-      if [ -n "$fired" ]; then
+      if [ -n "$fired" ] || [ -e "$pending" ]; then
+        touch "$pending"
         fail
         echo "brcmfmac firmware watchdog fired, check $n"
         if [ "$step" -eq 10 ]; then
           reboot_now
         else
-          snapshot psm-watchdog; reload_driver
+          snapshot psm-watchdog
+          if reload_driver; then rm -f "$pending"; fi
         fi
         exit 0
       fi
@@ -112,7 +119,7 @@ let
 
       case $step in
         3) snapshot restart-supplicant; systemctl restart wpa_supplicant ;;
-        6) snapshot reload-driver; reload_driver ;;
+        6) snapshot reload-driver; reload_driver || true ;;
         10) reboot_now ;;
       esac
     '';
