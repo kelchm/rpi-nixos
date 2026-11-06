@@ -17,8 +17,9 @@
     # roamoff=1 (pi-zero-2w.nix) leaves roaming to wpa_supplicant, which
     # roams only with bgscan: without it the streamer stayed for a day on the
     # Office AP a floor up, and later on one it heard at -78 dBm with the
-    # Basement AP at -53. bgscan scans every 30 s below -70 dBm and hourly
-    # above it.
+    # Basement AP at -53. brcmfmac can't report signal changes, so bgscan
+    # sets its interval at association: every 30 s for about an hour below
+    # -70 dBm, otherwise hourly. Each scan can roam to a better AP.
     templates."wpa_supplicant-network.conf" = {
       content = ''
         country=US

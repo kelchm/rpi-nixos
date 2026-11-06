@@ -16,7 +16,9 @@ let
   # A firmware PSM watchdog reloads the driver straight away. It can leave
   # wlan0 associated but losing most frames: on 2026-11-05 the streamer's AP
   # retried ten times as often as usual and about one check in four failed,
-  # so the count kept resetting and the ladder never got past check 2.
+  # so the count kept resetting and the ladder never got past check 2. The
+  # check still runs after that reload, so a fault that keeps returning with
+  # the gateway down still climbs to a reboot.
   #
   # The journal is volatile (see common.nix), so before each step a short
   # snapshot of driver and supplicant state goes to /var/log/wifi-recovery.
@@ -50,7 +52,7 @@ let
       # brcmfmac, so remove its holders first; brcmfmac loads them again.
       reload_driver() {
         mapfile -t holders < <(find /sys/module/brcmfmac/holders -mindepth 1 -printf '%f\n' 2>/dev/null)
-        modprobe -r "''${holders[@]}" brcmfmac || true
+        modprobe -r "''${holders[@]}" brcmfmac || echo "brcmfmac did not unload; the reload may not have reset the chip"
         modprobe brcmfmac
       }
 
@@ -60,7 +62,6 @@ let
         echo "brcmfmac firmware watchdog fired, reloading the driver"
         snapshot psm-watchdog
         reload_driver
-        exit 0
       fi
 
       # A missing wlan0 (driver never probed) must count as a failure too.
