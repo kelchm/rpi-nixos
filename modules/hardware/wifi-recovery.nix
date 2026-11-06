@@ -54,6 +54,14 @@ let
         } || true
       }
 
+      # The snapshot gets 30 s, in the background so even a command stuck in
+      # the kernel, such as sync on a failing SD card, can't hold off the reboot.
+      reboot_now() {
+        snapshot reboot &
+        for _ in $(seq 30); do kill -0 $! 2>/dev/null || break; sleep 1; done
+        systemctl reboot
+      }
+
       # Count a failed check; step is its place on the ladder.
       fail() {
         n=$(( $(cat "$state" 2>/dev/null || echo 0) + 1 ))
@@ -82,7 +90,7 @@ let
         fail
         echo "brcmfmac firmware watchdog fired, check $n"
         if [ "$step" -eq 10 ]; then
-          snapshot reboot; systemctl reboot
+          reboot_now
         else
           snapshot psm-watchdog; reload_driver
         fi
@@ -105,7 +113,7 @@ let
       case $step in
         3) snapshot restart-supplicant; systemctl restart wpa_supplicant ;;
         6) snapshot reload-driver; reload_driver ;;
-        10) snapshot reboot; systemctl reboot ;;
+        10) reboot_now ;;
       esac
     '';
   };
