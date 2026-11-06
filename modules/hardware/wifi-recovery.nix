@@ -13,6 +13,15 @@ let
   #  10 → reboot
   # and starts over (13, 16, 20, ...) if the reboot didn't happen.
   #
+  # A firmware PSM watchdog reloads the driver straight away. It can leave
+  # wlan0 associated but losing most frames: on 2026-11-05 the streamer's AP
+  # retried ten times as often as usual and about one check in four failed,
+  # so the count kept resetting and the ladder never got past check 2. A
+  # watchdog counts as a failed check and replaces that check's step, or
+  # reboots if the count has reached 10, so a run takes at most one action
+  # and a fault that keeps returning still climbs to a reboot. The next
+  # check, a minute later, judges whether the reload worked.
+  #
   # The journal is volatile (see common.nix), so before each step a short
   # snapshot of driver and supplicant state goes to /var/log/wifi-recovery.
   # That costs SD writes only when something is actually broken.
@@ -22,7 +31,78 @@ let
     text = ''
       state=/run/wifi-recovery/failures
       logdir=/var/log/wifi-recovery
-      mkdir -p "''${state%/*}" "$logdir"
+      mkdir -p "''${state%/*}"
+      mkdir -p "$logdir" || true
+
+      # Best effort: a failed snapshot must not stop the recovery step after it.
+      snapshot() {
+        {
+          f="$logdir/$(date +%Y%m%dT%H%M%S)-$1.log"
+          {
+            iw dev wlan0 link
+            ip addr show wlan0
+            # The hardened daemon only sees /run/wpa_supplicant, so wpa_cli's
+            # reply socket must live there; NixOS creates this dir only for
+            # userControlled setups.
+            mkdir -p /run/wpa_supplicant/client
+            wpa_cli -p /run/wpa_supplicant/control -i wlan0 status
+            journalctl -b -k --since -30min --no-pager
+            journalctl -b -u wpa_supplicant -u dhcpcd --since -30min --no-pager
+          } > "$f" 2>&1
+          find "$logdir" -name '*.log' -printf '%T@ %p\n' | sort -rn | tail -n +21 | cut -d' ' -f2- | xargs -r rm -f
+          sync
+        } || true
+      }
+
+      # The snapshot gets 30 s, in the background so even a command stuck in
+      # the kernel, such as sync on a failing SD card, can't hold off the reboot.
+      reboot_now() {
+        snapshot reboot &
+        for _ in $(seq 30); do kill -0 $! 2>/dev/null || break; sleep 1; done
+        systemctl reboot
+      }
+
+      # Count a failed check; step is its place on the ladder.
+      fail() {
+        n=$(( $(cat "$state" 2>/dev/null || echo 0) + 1 ))
+        echo "$n" > "$state"
+        step=$(( (n - 1) % 10 + 1 ))
+      }
+
+      # The chip's vendor module (brcmfmac_cyw on the Zero 2 W) holds
+      # brcmfmac, so remove its holders first; brcmfmac loads them again.
+      # Attaching needs 128 KiB of contiguous memory. On 2026-11-06, 13 days
+      # into a boot, that allocation failed and wlan0 stayed missing until
+      # the next reload; dropping the page cache and compacting first took
+      # the streamer from 4 such blocks to 86.
+      # Fails if brcmfmac didn't unload, since the chip then wasn't reset.
+      reload_driver() {
+        unloaded=0
+        mapfile -t holders < <(find /sys/module/brcmfmac/holders -mindepth 1 -printf '%f\n' 2>/dev/null)
+        modprobe -r "''${holders[@]}" brcmfmac || { echo "brcmfmac did not unload"; unloaded=1; }
+        sync
+        echo 1 > /proc/sys/vm/drop_caches || true
+        echo 1 > /proc/sys/vm/compact_memory || true
+        modprobe brcmfmac
+        return "$unloaded"
+      }
+
+      # The cursor lives in /run, so the first run after a boot reads the whole
+      # boot. A watchdog stays pending until a reload has unloaded the driver.
+      pending="''${state%/*}/watchdog-pending"
+      fired=$(journalctl -b -k --cursor-file="''${state%/*}/kernel-cursor" --grep "PSM's watchdog has fired" -o cat --no-pager || true)
+      if [ -n "$fired" ] || [ -e "$pending" ]; then
+        touch "$pending"
+        fail
+        echo "brcmfmac firmware watchdog fired, check $n"
+        if [ "$step" -eq 10 ]; then
+          reboot_now
+        else
+          snapshot psm-watchdog
+          if reload_driver; then rm -f "$pending"; fi
+        fi
+        exit 0
+      fi
 
       # A missing wlan0 (driver never probed) must count as a failure too.
       gw=$(ip -4 route show default dev wlan0 2>/dev/null | awk '{print $3; exit}') || gw=""
@@ -34,31 +114,13 @@ let
         exit 0
       fi
 
-      n=$(( $(cat "$state" 2>/dev/null || echo 0) + 1 ))
-      echo "$n" > "$state"
+      fail
       echo "gateway ''${gw:-(no default route)} unreachable, check $n"
 
-      snapshot() {
-        f="$logdir/$(date +%Y%m%dT%H%M%S)-$1.log"
-        {
-          iw dev wlan0 link
-          ip addr show wlan0
-          # The hardened daemon only sees /run/wpa_supplicant, so wpa_cli's
-          # reply socket must live there; NixOS creates this dir only for
-          # userControlled setups.
-          mkdir -p /run/wpa_supplicant/client
-          wpa_cli -p /run/wpa_supplicant/control -i wlan0 status
-          journalctl -b -k --since -30min --no-pager
-          journalctl -b -u wpa_supplicant -u dhcpcd --since -30min --no-pager
-        } > "$f" 2>&1 || true
-        find "$logdir" -name '*.log' -printf '%T@ %p\n' | sort -rn | tail -n +21 | cut -d' ' -f2- | xargs -r rm -f
-        sync
-      }
-
-      case $(( (n - 1) % 10 + 1 )) in
+      case $step in
         3) snapshot restart-supplicant; systemctl restart wpa_supplicant ;;
-        6) snapshot reload-driver; modprobe -r brcmfmac_wcc brcmfmac; modprobe brcmfmac ;;
-        10) snapshot reboot; systemctl reboot ;;
+        6) snapshot reload-driver; reload_driver || true ;;
+        10) reboot_now ;;
       esac
     '';
   };
@@ -69,6 +131,9 @@ in
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "${wifiRecovery}/bin/wifi-recovery";
+      # A run that hangs, such as in a driver unload, would hold off every
+      # later run and so the reboot. Its failure is already counted.
+      TimeoutStartSec = "2min";
     };
   };
 
