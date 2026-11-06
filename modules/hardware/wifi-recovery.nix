@@ -50,9 +50,16 @@ let
 
       # The chip's vendor module (brcmfmac_cyw on the Zero 2 W) holds
       # brcmfmac, so remove its holders first; brcmfmac loads them again.
+      # Attaching needs 128 KiB of contiguous memory. On 2026-11-06, 13 days
+      # into a boot, that allocation failed and wlan0 stayed missing until
+      # the next reload; dropping the page cache and compacting first took
+      # the streamer from 4 such blocks to 86.
       reload_driver() {
         mapfile -t holders < <(find /sys/module/brcmfmac/holders -mindepth 1 -printf '%f\n' 2>/dev/null)
         modprobe -r "''${holders[@]}" brcmfmac || echo "brcmfmac did not unload; the reload may not have reset the chip"
+        sync
+        echo 1 > /proc/sys/vm/drop_caches || true
+        echo 1 > /proc/sys/vm/compact_memory || true
         modprobe brcmfmac
       }
 
