@@ -23,7 +23,7 @@
     shairport-sync = { url = "github:mikebrady/shairport-sync/5.6.2"; flake = false; };
     nqptp = { url = "github:mikebrady/nqptp/1.2.9"; flake = false; };
     piaware = { url = "github:flightaware/piaware/v11.1"; flake = false; };
-    tcllauncher = { url = "github:flightaware/tcllauncher/v1.10"; flake = false; };
+    tcllauncher = { url = "github:flightaware/tcllauncher/v1.11"; flake = false; };
     mlat-client = { url = "github:mutability/mlat-client/v0.2.13"; flake = false; };
     fluent-bit = { url = "github:fluent/fluent-bit/v5.1.5"; flake = false; };
   };
