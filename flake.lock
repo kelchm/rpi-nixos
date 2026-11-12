@@ -232,16 +232,16 @@
     "tcllauncher": {
       "flake": false,
       "locked": {
-        "lastModified": 1565942738,
-        "narHash": "sha256-BVrsoczKeBBoM1Q3v6EJY81QwsX6xbUqFkcBb482WH4=",
+        "lastModified": 1793814766,
+        "narHash": "sha256-veNMMVxyTexK550xUdZefxHHl276TupJoflVgY/AFKI=",
         "owner": "flightaware",
         "repo": "tcllauncher",
-        "rev": "191986719758b51d75d2604d5c98193e27d4337d",
+        "rev": "f33399aba741418fff2cd7a91e1eb46d2f4c32f1",
         "type": "github"
       },
       "original": {
         "owner": "flightaware",
-        "ref": "v1.10",
+        "ref": "v1.11",
         "repo": "tcllauncher",
         "type": "github"
       }
