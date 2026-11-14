@@ -10,7 +10,7 @@ This is **specific to my setup** — hostnames, WiFi network, hardware, location
 |---|---|---|---|
 | `streamer-basement-workbench` | Pi Zero 2 W | AirPlay 2 receiver → PipeWire → USB DAC | Running |
 | `ups-compute-rack` | Pi 5 | NUT server for the compute rack's UPS | Running |
-| `ups-office` | Pi 5 | Office UPS monitoring, local NTP, and ADS-B feeding FlightAware | Running; combined-host trial |
+| `ups-office` | Pi 5 | Office UPS monitoring, local NTP, and ADS-B feeding FlightAware | Running |
 | `adsb-office` | Pi 3 Model B | Retained ADS-B fallback with the same FlightAware feeder identity | Powered off |
 | `ups-network-rack` | Pi 5 | NUT server for the network rack's UPS | Planned |
 | `streamer-*` (more) | Pi 5 (PoE-able) or Pi Zero 2 W | More AirPlay receivers | Planned |
@@ -234,19 +234,11 @@ After deploying, check `systemctl status fluent-bit`, then query VictoriaLogs fo
 
 ## ADS-B receiver
 
-`adsb-office` replaces a 2020 PiAware SD image on the same Pi 3B and RTL-SDR, with everything running natively: `dump1090-fa` from nixpkgs decodes, and piaware 11.1 (packaged under `pkgs/` because nixpkgs lacks it) uploads to FlightAware and runs MLAT. `secrets/adsb-office.yaml` holds the existing feeder ID, which keeps the site's stats and history, and the antenna's coordinates, which stay out of this public repo. Gain follows FlightAware's stock adaptive setting rather than the old image's fixed 42 dB, which overloaded the Pro Stick's built-in amplifier.
+`ups-office` runs the ADS-B receiver alongside office UPS monitoring and NTP. `dump1090-fa` decodes the RTL-SDR, piaware uploads to FlightAware and runs MLAT, and nginx serves the SkyAware map at `http://10.32.20.112:8080/` on Infra Mgmt. Everything runs natively; piaware and its helpers are packaged under `pkgs/`. The feeder ID and antenna coordinates live in `secrets/ups-office.yaml`. Keeping the feeder ID preserves the FlightAware site's statistics and history.
 
-dump1090's network ports listen on loopback only; the nixpkgs module isolates its network entirely, so the role turns that off for piaware's sake. The host sits on Infra Mgmt with a UniFi fixed IP of `10.32.20.121`, and the SkyAware map is at `http://10.32.20.121:8080/` (`.local` names don't resolve across VLANs from Main). After deploying, check `systemctl status dump1090-fa piaware`, look for `logged in to FlightAware` and, after a few minutes, `synchronized with N nearby receivers` in `journalctl -u piaware`, and confirm `/proc/<dump1090 pid>/cmdline` carries numeric `--lat`/`--lon` values. The FlightAware stats page should show the site reporting again within a few minutes. Unlike the Pi 5 hosts, the Pi 3's device tree leaves the memory cgroup enabled, so it needs no `cgroup_enable=memory`.
+The ADS-B role enables adaptive gain and binds dump1090's network ports to loopback for piaware and MLAT. After a deployment, check `systemctl status dump1090-fa piaware` and `journalctl -u piaware` for a successful FlightAware login and synchronization with nearby receivers.
 
-### Trial on the office UPS Pi 5
-
-`ups-office` also imports the ADS-B role for a trial on a Pi 5 with a heatsink and fan. On 2026-11-14 the existing office SD card moved into `test-1`, preserving its hostname, SSH host keys, state version and monitoring token. The UniFi reservation for `10.32.20.112` now belongs to the replacement's MAC, `88:a2:9e:8b:0b:ca`; the old board's reservation was removed after shutdown. The UPS and NTP roles stay on this host; SkyAware is at `http://10.32.20.112:8080/`. `secrets/ups-office.yaml` contains the existing feeder ID and antenna coordinates, while the powered-off `adsb-office` remains defined for fallback. The combined system is boot-persistent as generation 9. An improvement does not by itself distinguish board, cooling, power-supply or USB-path effects.
-
-At 15:04 EST, about an hour after the SDR came online, UPS monitoring, chrony, piaware, dump1090, vmagent and Fluent Bit were active. UPS status was `OL CHRG`, MLAT and FlightAware upload were green, CPU temperature was about 46°C and `vcgencmd get_throttled` reported `0x0`. The decoder restart count remained at four, unchanged since 14:00:57 during receiver setup. This is initial rollout evidence; long-term MLAT stability and the PSU as an isolated root cause remain unproven. The fan controller is present, but fan operation under load has not been tested. Follow-up alerting and dashboard changes are being handled in home-lab.
-
-Only one host may run piaware with this feeder ID at a time. It starts at boot even without the SDR. Copy and inspect the new system first, stop the Pi 3 before installing the combined system as the office card's boot default, then shut down the office Pi before moving the card and cables. Keep the replacement's temporary OS card intact. On the replacement, check UPS telemetry, NTP replies, metrics and logs, fan operation, USB power budget, undervoltage warnings, decoder restarts and sustained MLAT synchronization before accepting the move.
-
-Moving the office card back to the old board does **not** roll back its software. Keep the Pi 3 off until the office card again boots its previous UPS-only generation. If the replacement is reachable, restore the recorded previous system profile and run that system's `bin/switch-to-configuration boot` before shutdown. For recovery without a bootable Pi, the FIRMWARE partition's `config.txt` can select a retained generation with `os_prefix=nixos/<N>-default/`; verify that directory exists and replace the existing `os_prefix` line. After booting the previous generation, restore its system profile and boot default, then remove any temporary override. Restore the DHCP reservation to the original board if moving the card back. The pre-trial office system is generation 8, `/nix/store/a7mmhpfkc3sidv4khdhvgng8y804bv8i-nixos-system-ups-office-sd-card-26.05.20261025.1f607aa`; its `nixos/8-default` boot directory was verified before staging.
+`adsb-office` is a powered-off Pi 3 fallback configured with the same feeder ID. Only one host may run piaware with that identity at a time, even when no SDR is attached. Stop piaware on the active host before starting the fallback; moving an SD card between boards does not change its enabled roles.
 
 ## Prerequisites
 
