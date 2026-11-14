@@ -10,8 +10,8 @@ This is **specific to my setup** — hostnames, WiFi network, hardware, location
 |---|---|---|---|
 | `streamer-basement-workbench` | Pi Zero 2 W | AirPlay 2 receiver → PipeWire → USB DAC | Running |
 | `ups-compute-rack` | Pi 5 | NUT server for the compute rack's UPS | Running |
-| `ups-office` | Pi 5 | NUT server for the office UPS (Liebert PSA5, Starlink + T-Mobile gateways) | In progress |
-| `adsb-office` | Pi 3 Model B | ADS-B receiver feeding FlightAware (piaware + MLAT, local SkyAware map) | In progress |
+| `ups-office` | Pi 5 | Office UPS monitoring, local NTP, and ADS-B feeding FlightAware | Running; combined-host trial |
+| `adsb-office` | Pi 3 Model B | Retained ADS-B fallback with the same FlightAware feeder identity | Powered off |
 | `ups-network-rack` | Pi 5 | NUT server for the network rack's UPS | Planned |
 | `streamer-*` (more) | Pi 5 (PoE-able) or Pi Zero 2 W | More AirPlay receivers | Planned |
 | `uconsole` | ClockworkPi uConsole (CM4 or CM5) | Personal handheld | Planned |
@@ -240,7 +240,9 @@ dump1090's network ports listen on loopback only; the nixpkgs module isolates it
 
 ### Trial on the office UPS Pi 5
 
-`ups-office` also imports the ADS-B role for a trial on a Pi 5 with a heatsink and fan. The existing office SD card will move into `test-1`, preserving its hostname, SSH host keys, state version and monitoring token. The UniFi reservation for `10.32.20.112` must move from the old office Pi's MAC to the replacement's MAC after the old Pi is off. The UPS and NTP roles stay on this host; SkyAware will be at `http://10.32.20.112:8080/`. `secrets/ups-office.yaml` contains the existing feeder ID and antenna coordinates, while `adsb-office` remains defined for fallback. The trial is prepared, not yet accepted: an improvement would not by itself distinguish board, cooling, power-supply or USB-path effects.
+`ups-office` also imports the ADS-B role for a trial on a Pi 5 with a heatsink and fan. On 2026-11-14 the existing office SD card moved into `test-1`, preserving its hostname, SSH host keys, state version and monitoring token. The UniFi reservation for `10.32.20.112` now belongs to the replacement's MAC, `88:a2:9e:8b:0b:ca`; the old board's reservation was removed after shutdown. The UPS and NTP roles stay on this host; SkyAware is at `http://10.32.20.112:8080/`. `secrets/ups-office.yaml` contains the existing feeder ID and antenna coordinates, while the powered-off `adsb-office` remains defined for fallback. The combined system is boot-persistent as generation 9. An improvement does not by itself distinguish board, cooling, power-supply or USB-path effects.
+
+At 15:04 EST, about an hour after the SDR came online, UPS monitoring, chrony, piaware, dump1090, vmagent and Fluent Bit were active. UPS status was `OL CHRG`, MLAT and FlightAware upload were green, CPU temperature was about 46°C and `vcgencmd get_throttled` reported `0x0`. The decoder restart count remained at four, unchanged since 14:00:57 during receiver setup. This is initial rollout evidence; long-term MLAT stability and the PSU as an isolated root cause remain unproven. The fan controller is present, but fan operation under load has not been tested. Follow-up alerting and dashboard changes are being handled in home-lab.
 
 Only one host may run piaware with this feeder ID at a time. It starts at boot even without the SDR. Copy and inspect the new system first, stop the Pi 3 before installing the combined system as the office card's boot default, then shut down the office Pi before moving the card and cables. Keep the replacement's temporary OS card intact. On the replacement, check UPS telemetry, NTP replies, metrics and logs, fan operation, USB power budget, undervoltage warnings, decoder restarts and sustained MLAT synchronization before accepting the move.
 
