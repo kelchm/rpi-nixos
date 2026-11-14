@@ -10,8 +10,8 @@ This is **specific to my setup** — hostnames, WiFi network, hardware, location
 |---|---|---|---|
 | `streamer-basement-workbench` | Pi Zero 2 W | AirPlay 2 receiver → PipeWire → USB DAC | Running |
 | `ups-compute-rack` | Pi 5 | NUT server for the compute rack's UPS | Running |
-| `ups-office` | Pi 5 | NUT server for the office UPS (Liebert PSA5, Starlink + T-Mobile gateways) | In progress |
-| `adsb-office` | Pi 3 Model B | ADS-B receiver feeding FlightAware (piaware + MLAT, local SkyAware map) | In progress |
+| `ups-office` | Pi 5 | Office UPS monitoring, local NTP, and ADS-B feeding FlightAware | Running |
+| `adsb-office` | Pi 3 Model B | Retained ADS-B fallback with the same FlightAware feeder identity | Powered off |
 | `ups-network-rack` | Pi 5 | NUT server for the network rack's UPS | Planned |
 | `streamer-*` (more) | Pi 5 (PoE-able) or Pi Zero 2 W | More AirPlay receivers | Planned |
 | `uconsole` | ClockworkPi uConsole (CM4 or CM5) | Personal handheld | Planned |
@@ -234,9 +234,11 @@ After deploying, check `systemctl status fluent-bit`, then query VictoriaLogs fo
 
 ## ADS-B receiver
 
-`adsb-office` replaces a 2020 PiAware SD image on the same Pi 3B and RTL-SDR, with everything running natively: `dump1090-fa` from nixpkgs decodes, and piaware 11.1 (packaged under `pkgs/` because nixpkgs lacks it) uploads to FlightAware and runs MLAT. `secrets/adsb-office.yaml` holds the existing feeder ID, which keeps the site's stats and history, and the antenna's coordinates, which stay out of this public repo. Gain follows FlightAware's stock adaptive setting rather than the old image's fixed 42 dB, which overloaded the Pro Stick's built-in amplifier.
+`ups-office` runs the ADS-B receiver alongside office UPS monitoring and NTP. `dump1090-fa` decodes the RTL-SDR, piaware uploads to FlightAware and runs MLAT, and nginx serves the SkyAware map at `http://10.32.20.112:8080/` on Infra Mgmt. Everything runs natively; piaware and its helpers are packaged under `pkgs/`. The feeder ID and antenna coordinates live in `secrets/ups-office.yaml`. Keeping the feeder ID preserves the FlightAware site's statistics and history.
 
-dump1090's network ports listen on loopback only; the nixpkgs module isolates its network entirely, so the role turns that off for piaware's sake. The host sits on Infra Mgmt with a UniFi fixed IP of `10.32.20.121`, and the SkyAware map is at `http://10.32.20.121:8080/` (`.local` names don't resolve across VLANs from Main). After deploying, check `systemctl status dump1090-fa piaware`, look for `logged in to FlightAware` and, after a few minutes, `synchronized with N nearby receivers` in `journalctl -u piaware`, and confirm `/proc/<dump1090 pid>/cmdline` carries numeric `--lat`/`--lon` values. The FlightAware stats page should show the site reporting again within a few minutes. Unlike the Pi 5 hosts, the Pi 3's device tree leaves the memory cgroup enabled, so it needs no `cgroup_enable=memory`.
+The ADS-B role enables adaptive gain and binds dump1090's network ports to loopback for piaware and MLAT. After a deployment, check `systemctl status dump1090-fa piaware` and `journalctl -u piaware` for a successful FlightAware login and synchronization with nearby receivers.
+
+`adsb-office` is a powered-off Pi 3 fallback configured with the same feeder ID. Only one host may run piaware with that identity at a time, even when no SDR is attached. Stop piaware on the active host before starting the fallback; moving an SD card between boards does not change its enabled roles.
 
 ## Prerequisites
 
