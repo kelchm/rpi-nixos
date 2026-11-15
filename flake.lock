@@ -34,16 +34,16 @@
     "fluent-bit": {
       "flake": false,
       "locked": {
-        "lastModified": 1792554706,
-        "narHash": "sha256-L76MOMlT9xKGwtdnwtA1+lrLa50NnCqCvUdR12X1oao=",
+        "lastModified": 1794188397,
+        "narHash": "sha256-zPwGt9IG9tSV+ogyG5+UXBwU0GSHX3ppKva7KNBy3kA=",
         "owner": "fluent",
         "repo": "fluent-bit",
-        "rev": "0039c4f0d1b530bedd8448df2fa4c301d58a5b91",
+        "rev": "e0149076aeff009d35fd495e55379cb78f1eb53f",
         "type": "github"
       },
       "original": {
         "owner": "fluent",
-        "ref": "v5.1.5",
+        "ref": "v5.2.0",
         "repo": "fluent-bit",
         "type": "github"
       }
