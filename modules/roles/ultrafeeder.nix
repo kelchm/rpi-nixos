@@ -21,6 +21,20 @@ let
     beast = { listen = 39005; target = 30005; };
     mlat = { listen = 39015; target = 30105; };
   };
+  iptables = lib.getExe' config.networking.firewall.package "iptables";
+  installIngress = pkgs.writeShellScript "ultrafeeder-ingress-install" ''
+    set -eu
+    ${iptables} -w -t raw -N ultrafeeder-ingress 2>/dev/null || true
+    ${iptables} -w -t raw -C ultrafeeder-ingress ! -i ${bridge} -d ${address}/32 -j DROP 2>/dev/null || \
+      ${iptables} -w -t raw -A ultrafeeder-ingress ! -i ${bridge} -d ${address}/32 -j DROP
+    ${iptables} -w -t raw -C PREROUTING -j ultrafeeder-ingress 2>/dev/null || \
+      ${iptables} -w -t raw -I PREROUTING -j ultrafeeder-ingress
+  '';
+  removeIngress = pkgs.writeShellScript "ultrafeeder-ingress-remove" ''
+    ${iptables} -w -t raw -D PREROUTING -j ultrafeeder-ingress 2>/dev/null || true
+    ${iptables} -w -t raw -F ultrafeeder-ingress 2>/dev/null || true
+    ${iptables} -w -t raw -X ultrafeeder-ingress 2>/dev/null || true
+  '';
 in
 {
   assertions = [
@@ -46,18 +60,9 @@ in
   # container from outside its bridge, even if a LAN client adds a route.
   # Raw PREROUTING runs before DNAT, so replies to masqueraded outbound feed
   # connections still arrive addressed to the host and are unaffected.
-  networking.firewall.extraCommands = ''
-    iptables -w -t raw -N ultrafeeder-ingress 2>/dev/null || true
-    iptables -w -t raw -F ultrafeeder-ingress
-    iptables -w -t raw -A ultrafeeder-ingress ! -i ${bridge} -d ${address}/32 -j DROP
-    iptables -w -t raw -C PREROUTING -j ultrafeeder-ingress 2>/dev/null || \
-      iptables -w -t raw -I PREROUTING -j ultrafeeder-ingress
-  '';
-  networking.firewall.extraStopCommands = ''
-    iptables -w -t raw -D PREROUTING -j ultrafeeder-ingress 2>/dev/null || true
-    iptables -w -t raw -F ultrafeeder-ingress 2>/dev/null || true
-    iptables -w -t raw -X ultrafeeder-ingress 2>/dev/null || true
-  '';
+  # Never flush or remove this guard during a host firewall reload/stop.
+  # Cleanup follows container removal instead, when nothing remains exposed.
+  networking.firewall.extraCommands = "${installIngress}";
 
   systemd.sockets = lib.mapAttrs' (name: relay:
     lib.nameValuePair "ultrafeeder-${name}" {
@@ -89,6 +94,8 @@ in
       after = [ "sops-install-secrets.service" "dump1090-fa.service" ];
       wants = [ "ultrafeeder-beast.socket" "ultrafeeder-mlat.socket" ];
       restartTriggers = [ networkFile ];
+      preStart = "${installIngress}";
+      postStop = lib.mkAfter "${removeIngress}";
       serviceConfig = {
         StateDirectory = [ "ultrafeeder/history" "ultrafeeder/graphs" ];
         # Bound registry/network failures during activation; a failed pull is

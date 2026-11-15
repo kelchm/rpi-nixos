@@ -36,6 +36,12 @@ jobs:
             > "$RUNNER_TEMP/ultrafeeder.json"
           python3 .github/ci/ultrafeeder-smoke.py "$RUNNER_TEMP/ultrafeeder.json"
 
+      - name: Keep container ingress blocked across firewall reloads
+        run: |
+          tools=$(nix build --no-link --print-out-paths --accept-flake-config --no-update-lock-file .#checks.aarch64-linux.ultrafeeder-firewall)
+          sudo timeout 30 unshare --net bash .github/ci/ultrafeeder-firewall.sh \
+            "$tools/install" "$tools/remove" "$tools/reload"
+
       - name: Keep the Pi platform fixed in routine updates
         if: github.event_name == 'pull_request' && github.head_ref == 'renovate/lock-file-maintenance'
         env:

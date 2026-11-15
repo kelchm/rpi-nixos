@@ -38,6 +38,8 @@ The sockets use `FreeBind`, which lets them bind to the gateway address at boot 
 
 Outbound feed and MLAT traffic leaves through netavark's masquerade rule. Netavark enables IPv4 forwarding when the container starts; removing the bridge does not restore that sysctl. A raw-table ingress rule rejects packets addressed directly to the container from other interfaces, so adding a LAN route through the Pi does not expose its internal ports. Host nginx can still proxy the map. Name resolution uses the host's resolvers. Podman's DNS service is off.
 
+The ingress rule is installed without flushing its chain, so firewall reloads do not create an exposure window. Container startup also installs the guard; cleanup runs only after Podman removes the container, including when the role is removed.
+
 ## State and limits
 
 | Path on the host | Contents | Retention |
@@ -89,7 +91,9 @@ From a browser on the LAN, open the [adsb.lol feeder check](https://my.adsb.lol)
 
 ## Updates
 
-Renovate's custom regex manager tracks the image tag and digest in `modules/roles/ultrafeeder.nix` and proposes digest updates on the normal weekend schedule. CI runs `.github/ci/ultrafeeder-smoke.py` on an ARM64 runner. The test checks the configured production destinations, then substitutes a fake aggregator on an internal Docker network. Synthetic radio and MLAT positions must both appear on the map, while only radio messages may reach the fake aggregator. It also checks the map and graphs endpoints. The trial cannot reach the internet or the real aggregators. It does not exercise Podman, netavark, the socket relays, or the host firewall; those are checked only on deployment.
+Renovate's custom regex manager tracks the image tag and digest in `modules/roles/ultrafeeder.nix` and proposes digest updates on the normal weekend schedule. CI runs `.github/ci/ultrafeeder-smoke.py` on an ARM64 runner. The test checks the configured production destinations, then substitutes a fake aggregator on an internal Docker network. Synthetic radio and MLAT positions must both appear on the map, while only radio messages may reach the fake aggregator. It also checks the map and graphs endpoints. The trial cannot reach the internet or the real aggregators.
+
+The separate firewall test uses isolated Linux network namespaces and the actual NixOS lifecycle scripts. It verifies that a routed client is blocked before and after a real firewall reload, the host can still reach the container, repeated installation adds no duplicate rules, and cleanup restores the route. CI does not exercise Podman, netavark, or the socket relays; verify those during deployment.
 
 Before merging an image update, read the upstream changes, pull the new image on the Pi, and deploy with `test` before `switch`.
 
