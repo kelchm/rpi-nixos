@@ -6,6 +6,14 @@
   schedule: ["every weekend"],
   automerge: false,
   nix: { enabled: true },
+  customManagers: [{
+    customType: "regex",
+    managerFilePatterns: ["/^modules\\/roles\\/ultrafeeder\\.nix$/"],
+    matchStrings: [
+      'image = "(?<depName>ghcr\\.io/sdr-enthusiasts/docker-adsb-ultrafeeder):(?<currentValue>[^"@]+)@(?<currentDigest>sha256:[a-f0-9]+)";',
+    ],
+    datasourceTemplate: "docker",
+  }],
   lockFileMaintenance: {
     enabled: true,
     schedule: ["every weekend"],

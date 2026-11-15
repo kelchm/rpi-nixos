@@ -102,5 +102,9 @@
         import ./.github/ci/local-ntp.nix {
           hosts = with self.nixosConfigurations; [ ups-compute-rack ups-office ];
         };
+      checks.aarch64-linux.ultrafeeder-firewall =
+        import ./.github/ci/ultrafeeder-firewall.nix {
+          host = self.nixosConfigurations.ups-office;
+        };
     };
 }

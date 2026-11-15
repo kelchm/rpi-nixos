@@ -8,7 +8,7 @@ Host configuration is assembled by `mkHost` in [flake.nix](../flake.nix). Shared
 |---|---|---|
 | `streamer-basement-workbench` | Pi Zero 2 W | AirPlay receiver through PipeWire and a USB DAC |
 | `ups-compute-rack` | Pi 5 | Compute-rack UPS, local NTP, and service probes |
-| `ups-office` | Pi 5 | Office UPS, local NTP, and ADS-B receiver |
+| `ups-office` | Pi 5 | Office UPS, local NTP, ADS-B receiver, aircraft map, and community feeds |
 | `adsb-office` | Pi 3 Model B | ADS-B fallback (normally off) |
 
 The definitions in [hosts/](../hosts/) and [flake.nix](../flake.nix) are authoritative. An existing configuration does not imply that its host is powered on or enrolled as an expected live target in home-lab.
@@ -39,9 +39,11 @@ Decrypted values land at `/run/secrets/<name>` (root:root 0400); sops-nix templa
 
 `ups-office` runs `dump1090-fa`, piaware, MLAT, and nginx alongside UPS monitoring and NTP. The [ADS-B role](../modules/roles/adsb.nix) enables adaptive gain, keeps the decoder's network listeners on loopback, and serves SkyAware on port 8080. The feeder ID and antenna coordinates come from the host's encrypted payload; preserving the feeder ID preserves the FlightAware site's statistics and history.
 
+`ups-office` also runs an Ultrafeeder container from the [Ultrafeeder role](../modules/roles/ultrafeeder.nix). It reads the decoder's output through private socket relays, serves tar1090 and graphs on port 8081, and feeds adsb.lol and airplanes.live with ADS-B and MLAT. See the [ADS-B map and feeds guide](adsb.md) for its network, state, validation, and updates.
+
 After deployment, check `systemctl status dump1090-fa piaware` and `journalctl -u piaware` for a successful FlightAware login and synchronization with nearby receivers.
 
-The `adsb-office` Pi 3 is a fallback configured with the same feeder ID and should normally remain off. Only one host may run piaware with that identity at a time, even without an SDR attached. Stop piaware on the active host before starting the fallback. Moving an SD card between boards does not change its enabled roles or roll back its software.
+The `adsb-office` Pi 3 is a fallback configured with the same feeder ID and should normally remain off. Only one host may run piaware with that identity at a time, even without an SDR attached. Stop piaware on the active host before starting the fallback. The fallback does not run the Ultrafeeder map or community feeds. Moving an SD card between boards does not change its enabled roles or roll back its software.
 
 ## Network and monitoring ownership
 
