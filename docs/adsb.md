@@ -19,9 +19,9 @@ The decoder sends its Beast output from port 30005 to readsb. piaware's FlightAw
 
 ## Location and identity
 
-The container reuses the antenna latitude and longitude already stored in the host's SOPS payload. The same payload also holds the antenna elevation and the feed UUID. sops-nix renders these values into a root-only environment file under `/run/secrets-rendered/`, so they never enter the Nix store or this public repository. Keep the UUID unchanged. The aggregators use it to identify this receiver and its statistics.
+The container reuses the antenna latitude and longitude already stored in the host's SOPS payload. The same payload also holds the antenna elevation and the feed UUID. sops-nix renders these values into the root-only `/run/secrets/rendered/ultrafeeder.env`, so plaintext values never enter the Nix store or this public repository. Keep the UUID unchanged. The aggregators use it to identify this receiver and its statistics.
 
-The aggregators need the exact position and elevation for MLAT. Each MLAT connection passes `--privacy` to request omission from public MLAT sync maps. `receiver-altitude` includes its unit suffix (`m` or `ft`) and uses antenna elevation above mean sea level; the initial value was copied from FlightAware's existing location report. `ultrafeeder-uuid` is shared by the two new feeds and stays separate from the FlightAware feeder ID. Anyone with root access on the Pi can read the values through `podman inspect`.
+The aggregators need the exact position and elevation for MLAT. Each MLAT connection passes `--privacy` to request omission from public MLAT sync maps. `receiver-altitude` includes its unit suffix (`m` or `ft`) and is height above the WGS84 ellipsoid, as required by the bundled MLAT client. The initial value was converted offline from FlightAware's AMSL location report using the [EGM96 geoid grid](https://github.com/OSGeo/proj-datumgrid/blob/b6593c9e7047e5ec26ffd8ed386c5f3ac4fc7b6d/egm96_15.gtx); ellipsoid height is AMSL height plus geoid separation. No station coordinates were sent to an elevation service. `ultrafeeder-uuid` is shared by the two new feeds and stays separate from the FlightAware feeder ID. Root can read the environment through `podman inspect`, and local users can read precise location arguments from the readsb and MLAT process command lines. `LOGLEVEL=error` avoids verbose MLAT startup messages containing those arguments in the shipped journal.
 
 ## Network
 
@@ -50,7 +50,7 @@ The ingress rule is installed without flushing its chain, so firewall reloads do
 
 Graph data written since the last flush is lost on an unclean stop. Live map files use `/run`; readsb periodically saves its state to the history directory and restores it on restart. Recent changes since the last save can be lost on an unclean stop. Persistent traces add SD-card writes; compare actual device writes after deployment before increasing retention or trace frequency.
 
-The container is limited to 512 MiB of memory with no swap. That limit includes its tmpfs mounts: up to 256 MiB for `/run` and 32 MiB for `/var/log`. Shared memory is capped at 64 MiB. Enforcement relies on the `cgroup_enable=memory` kernel parameter described in [observability](observability.md#memory-and-sd-storage). Runtime CPU, memory, and SD-card writes have not been measured yet.
+The 1 GiB office Pi also supplies UPS monitoring and NTP, so the optional container is limited to 320 MiB with no swap and `oom_score_adj=500`. That limit includes its tmpfs mounts: up to 256 MiB for `/run` and 32 MiB for `/var/log`. Shared memory is capped at 64 MiB. Enforcement relies on the `cgroup_enable=memory` kernel parameter described in [observability](observability.md#memory-and-sd-storage). These are limits, not working-set measurements. Check `memory.peak`, `memory.events` (`oom_kill`), host memory availability/pressure, and SD writes over a full day of traffic before raising retention or trace frequency. Nginx proxy buffering is disabled so large map responses do not spill onto the SD card.
 
 ## Service lifecycle
 

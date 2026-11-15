@@ -125,6 +125,8 @@ in
       networks = [ "ultrafeeder" ];
       environment = {
         TZ = config.time.timeZone;
+        # Verbose MLAT startup messages include precise station coordinates
+        # and identity in command-line arguments; keep those out of the journal.
         LOGLEVEL = "error";
         READSB_NET_ONLY = "true";
         READSB_RX_LOCATION_ACCURACY = "1";
@@ -162,8 +164,11 @@ in
         "--ip=${address}"
         "--tmpfs=/run:rw,exec,nosuid,size=256m"
         "--tmpfs=/var/log:rw,nosuid,size=32m"
-        "--memory=512m"
-        "--memory-swap=512m"
+        # This Pi has 1 GiB RAM and also supplies UPS/NTP services. Prefer
+        # killing this optional workload rather than those native services.
+        "--memory=320m"
+        "--memory-swap=320m"
+        "--oom-score-adj=500"
         "--shm-size=64m"
       ];
     };
@@ -172,7 +177,10 @@ in
   # Nginx provides the LAN-facing port; Podman publishes no host ports.
   services.nginx.virtualHosts.ultrafeeder = {
     listen = [ { addr = "0.0.0.0"; port = 8081; } ];
-    locations."/".proxyPass = "http://${address}:80";
+    locations."/" = {
+      proxyPass = "http://${address}:80";
+      extraConfig = "proxy_buffering off;";
+    };
     extraConfig = "access_log off;";
   };
   networking.firewall.allowedTCPPorts = [ 8081 ];

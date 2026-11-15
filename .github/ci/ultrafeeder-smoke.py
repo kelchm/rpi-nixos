@@ -164,6 +164,13 @@ def main():
                 assert "<html" in page.lower()
                 docker("exec", feeder, "/usr/bin/python3", "-c", fetch, "/graphs1090/")
                 assert docker("inspect", "--format", "{{.State.OOMKilled}}", feeder) == "false"
+                limits = (
+                    "from pathlib import Path; "
+                    "assert Path('/sys/fs/cgroup/memory.max').read_text().strip() == '335544320'; "
+                    "assert Path('/sys/fs/cgroup/memory.swap.max').read_text().strip() == '0'; "
+                    "assert int(Path('/proc/1/oom_score_adj').read_text()) >= 500"
+                )
+                docker("exec", feeder, "/usr/bin/python3", "-c", limits)
                 print("Verified map, graphs, radio/MLAT positions, and an outgoing feed excluding MLAT results")
                 return
             except (subprocess.CalledProcessError, ValueError, KeyError, AssertionError) as error:
