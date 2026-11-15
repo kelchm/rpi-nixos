@@ -105,12 +105,16 @@ in
       ignore_volume_control = "no";
       volume_control_profile = "dasl_tapered";
     };
-    # At verbosity 1, each line also starts with the seconds since the previous
-    # line, padded to 20 characters. The journal already timestamps every line,
-    # so drop it; this needs pkgs/shairport-sync-log-options.patch to take
-    # effect. The file:line that follows stays: it is short and locates a
-    # warning in shairport-sync's source.
-    settings.diagnostics.log_show_time_since_last_message = "no";
+    settings.diagnostics = {
+      # Keep packet/buffer/timing statistics and detailed debug messages:
+      # audible dropouts can be concealed with silence without a Wi-Fi
+      # disconnect or a PipeWire xrun. The backend's silence message is level 3.
+      statistics = "yes";
+      log_verbosity = 3;
+      # The journal already timestamps each line. This needs
+      # pkgs/shairport-sync-log-options.patch; retain the useful file:line.
+      log_show_time_since_last_message = "no";
+    };
   };
 
   # nqptp ships its own unit (DynamicUser + CAP_NET_BIND_SERVICE for 319/320)
