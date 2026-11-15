@@ -195,16 +195,16 @@
     "shairport-sync": {
       "flake": false,
       "locked": {
-        "lastModified": 1792934624,
-        "narHash": "sha256-JiiZLgeYFoZ+Xq6tn1+KqW6Ewo+j+5JmxJ0Wm3dXqoE=",
+        "lastModified": 1794304627,
+        "narHash": "sha256-HcBRsByJ1efl84AkVu3QIYYH8OF1dLYBZsJz2NSoPT4=",
         "owner": "mikebrady",
         "repo": "shairport-sync",
-        "rev": "0a34fbda83724cc06266aadcf7c88acc8fef4e7d",
+        "rev": "7ce90d89529dd760488f20592a7cbff626672f6c",
         "type": "github"
       },
       "original": {
         "owner": "mikebrady",
-        "ref": "5.6.2",
+        "ref": "5.6.3",
         "repo": "shairport-sync",
         "type": "github"
       }
