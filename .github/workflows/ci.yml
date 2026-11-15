@@ -28,6 +28,14 @@ jobs:
           .#nixosConfigurations
           --apply 'builtins.mapAttrs (_: host: host.config.system.build.toplevel.drvPath)'
 
+      - name: Smoke test the ARM64 aircraft map
+        run: |
+          nix eval --json --accept-flake-config --no-update-lock-file \
+            .#nixosConfigurations.ups-office.config.virtualisation.oci-containers.containers.ultrafeeder \
+            --apply 'container: { inherit (container) image environment extraOptions; }' \
+            > "$RUNNER_TEMP/ultrafeeder.json"
+          python3 .github/ci/ultrafeeder-smoke.py "$RUNNER_TEMP/ultrafeeder.json"
+
       - name: Keep the Pi platform fixed in routine updates
         if: github.event_name == 'pull_request' && github.head_ref == 'renovate/lock-file-maintenance'
         env:

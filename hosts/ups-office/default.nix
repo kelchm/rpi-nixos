@@ -5,6 +5,7 @@
     ../../modules/roles/ups.nix
     ../../modules/roles/ntp-server.nix
     ../../modules/roles/adsb.nix
+    ../../modules/roles/ultrafeeder.nix
     ../../modules/profiles/metrics.nix
     ../../modules/profiles/logs
   ];

@@ -10,7 +10,7 @@ The four configurations in this repo combine boards, peripherals, and service ro
 |---|---|---|---|
 | Workbench AirPlay receiver | Pi Zero 2 W (WiFi) | USB DAC and powered speakers | AirPlay 2 audio |
 | Compute-rack UPS and time server | Pi 5 (wired) | CyberPower UPS over USB | UPS telemetry, NTP, service probes |
-| Office UPS, time server and ADS-B receiver | Pi 5 (wired) | Vertiv Liebert PSA5 over USB; RTL-SDR and antenna | UPS telemetry, NTP, ADS-B |
+| Office UPS, time server and ADS-B receiver | Pi 5 (wired) | Vertiv Liebert PSA5 over USB; RTL-SDR and antenna | UPS telemetry, NTP, ADS-B, aircraft map and community feeds |
 | Standalone ADS-B fallback | Pi 3 Model B (wired) | Same RTL-SDR and antenna as the office receiver | ADS-B |
 
 All four configurations include metrics collection with vmagent and journal shipping with Fluent Bit to home-lab's VictoriaMetrics and VictoriaLogs. A separate debug profile is available for temporary troubleshooting.
@@ -24,7 +24,7 @@ The standalone ADS-B fallback uses the office receiver's SDR, antenna, and Fligh
 - **AirPlay 2.** Makes the workbench speakers available as an AirPlay receiver. shairport-sync and nqptp handle the session and its timing; PipeWire drives the audio output.
 - **UPS monitoring.** Network UPS Tools reads battery charge, runtime, load, and input voltage, supplying telemetry for home-lab's power alerts.
 - **NTP.** chrony serves local time using the Starlink dish and public NTP pool servers as sources.
-- **ADS-B.** dump1090-fa decodes broadcasts from nearby aircraft, piaware feeds FlightAware and participates in multilateration, and SkyAware provides a live aircraft map.
+- **ADS-B.** dump1090-fa decodes broadcasts from nearby aircraft, piaware feeds FlightAware and participates in multilateration, and SkyAware provides a live aircraft map. On the office Pi, an Ultrafeeder container adds a tar1090 map with history graphs and feeds adsb.lol and airplanes.live.
 
 ## 🧱 How it's built
 
@@ -59,5 +59,6 @@ rpi-nixos/
 - [Architecture](docs/architecture.md) — configuration model, configured hosts, secrets, and what this repo owns versus home-lab.
 - [Setup and operations](docs/operations.md) — prerequisites, deployment, provisioning, recovery, and key management.
 - [Observability](docs/observability.md) — metrics and journal shipping, service probes, resource limits, and verification.
+- [ADS-B map and feeds](docs/adsb.md) — the Ultrafeeder map, community feeds, networking, state, validation, and updates.
 - [Time services](docs/time-services.md) — the NTP servers, their sources and access policy, and validation.
 - [Platform and dependency maintenance](docs/platform-and-updates.md) — upstream choices, update flow, CI checks, and hardware quirks.
