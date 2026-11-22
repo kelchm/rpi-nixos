@@ -3,6 +3,7 @@
   imports = [
     ../../modules/hardware/pi-zero-2w.nix
     ../../modules/roles/streamer.nix
+    ../../modules/roles/ritornel-player.nix
     ../../modules/profiles/metrics.nix
     ../../modules/profiles/logs
     ./secrets.nix

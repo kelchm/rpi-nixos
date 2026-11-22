@@ -26,6 +26,19 @@
     tcllauncher = { url = "github:flightaware/tcllauncher/v1.10"; flake = false; };
     mlat-client = { url = "github:mutability/mlat-client/v0.2.13"; flake = false; };
     fluent-bit = { url = "github:fluent/fluent-bit/v5.1.5"; flake = false; };
+
+    # Ritornel, pinned to one commit by hand. A satellite and its hub must
+    # speak the same contract version or they refuse each other, so this
+    # moves only with the hub. A commit in the URL keeps lock maintenance from
+    # moving it, and Dependabot isn't allowed to.
+    ritornel = { url = "github:ritornel/ritornel/ddefd387b7a82af881637b47ef8162898cd4e00a"; flake = false; };
+    # The Rust that Ritornel's rust-toolchain.toml names, usually newer than
+    # nixpkgs' rustc. Lock maintenance refreshes it; a pinned toolchain
+    # version builds the same either way.
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   nixConfig = {
@@ -46,7 +59,7 @@
   # Without that, the VM rebuilds Pi kernels from source even when nvmd has
   # them cached (~4-hour kernel rebuild).
 
-  outputs = { self, nixpkgs, sops-nix, nixos-raspberrypi, ... }@inputs:
+  outputs = { self, nixpkgs, sops-nix, nixos-raspberrypi, rust-overlay, ... }@inputs:
     let
       # The pkgs/ sources as { src, version }, with the version read from the
       # locked tag so the two can't drift apart.
@@ -57,14 +70,20 @@
           src = inputs.${name};
           version = nixpkgs.lib.removePrefix "v"
             lock.nodes.${lock.nodes.${lock.root}.inputs.${name}}.original.ref;
-        });
+        }) // {
+          # Pinned to a commit rather than a tag; Ritornel has no releases yet.
+          ritornel = {
+            src = inputs.ritornel;
+            version = "0-unstable-${builtins.substring 0 8 inputs.ritornel.lastModifiedDate}";
+          };
+        };
 
       # Passing nixpkgs here changes host userspace, without changing the
       # nixpkgs that builds nvmd's kernel/firmware package outputs.
       mkHost = { hostName, modules }:
         nixos-raspberrypi.lib.nixosSystem {
           inherit nixpkgs;
-          specialArgs = { inherit nixos-raspberrypi sources; };
+          specialArgs = { inherit nixos-raspberrypi sources rust-overlay; };
           modules = [
             sops-nix.nixosModules.sops
             ./modules/common.nix

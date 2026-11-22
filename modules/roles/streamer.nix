@@ -75,6 +75,16 @@ in
         actions.update-props."api.alsa.soft-mixer" = true;
       }];
     };
+
+    # The USB DAC is the only output. With the Pi's own headphone jack left
+    # on, PipeWire falls back to it whenever the DAC is off or unplugged, and
+    # a player would carry on into a jack nothing is connected to.
+    wireplumber.extraConfig."30-no-builtin-audio" = {
+      "monitor.alsa.rules" = [{
+        matches = [{ "api.alsa.card.name" = "~bcm2835.*"; }];
+        actions.update-props."device.disabled" = true;
+      }];
+    };
   };
 
   # asound.state persistence: PipeWire stops writing to the hw mixer (above),
