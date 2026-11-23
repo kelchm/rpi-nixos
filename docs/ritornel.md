@@ -8,19 +8,19 @@
 
 ## Service
 
-`ritornel.service` runs `ritornel-server serve --data-dir /var/lib/ritornel --output default` as the `ritornel` system user, which is in the `pipewire` group to reach the system PipeWire socket. It takes the AirPlay receiver's name (`RITORNEL_NAME`), so the hub lists it by what the speakers are called. It starts after PipeWire and WirePlumber and restarts ten seconds after a failure. It does not wait for the network, because the server starts without its hub and finds it once it answers. With no `--listen`, the server stays on loopback and the role opens no firewall port.
+`ritornel.service` runs `ritornel-server serve --data-dir /var/lib/ritornel --output default` as the `ritornel` system user, which is in the `pipewire` group to reach the system PipeWire socket. It takes the AirPlay receiver's name (`RITORNEL_NAME`), so the hub lists it by what the speakers are called. It starts after PipeWire and WirePlumber and restarts ten seconds after a failure. It does not wait for the network, because the server starts without its hub and finds it once it answers. With no `--listen`, and no `config.toml` in the data directory to name another address (the role writes none), the server stays on loopback and the role opens no firewall port.
 
 Sound goes through ALSA's `default` device into PipeWire, whose only sink is the USB DAC: the streamer role disables the Pi's headphone jack and keeps the DAC's hardware volume at 0 dB across reboots and replugs. Ritornel's volume is its own gain, independent of the AirPlay slider.
 
 The hub is reached by its `.local` name, which needs Avahi with nss-mdns (`common.nix` enables both).
 
-The data directory is mode 0700 and the client proves itself by reading it, so the `ritornelctl` installed on the host is a wrapper that runs the real client as `ritornel` against `/var/lib/ritornel`. Over SSH, `ritornelctl status`, `ritornelctl play` and the rest work as they are.
+The data directory is mode 0700 and the client proves itself by reading it, so the `ritornelctl` installed on the host is a wrapper that runs the real client as `ritornel` against `/var/lib/ritornel`. Over SSH, `ritornelctl status`, `ritornelctl play <track>` and the rest work as they are.
 
 ## Joining the hub
 
-A data directory joins its hub once. The link lives in `/var/lib/ritornel/server.db`, so it survives deploys, rollbacks and reboots, but not a reflash or a deleted data directory.
+A data directory joins its hub once. The link lives in `/var/lib/ritornel/server.db`, so it survives deploys and reboots, but not a reflash or a deleted data directory. It survives a rollback only if no newer server migrated `server.db` in between: an older server refuses a newer schema and does not start. The role names no backup folder, so there is no pre-migration copy to restore; roll forward instead.
 
-1. On the hub, make an invite with `ritornelctl link invite`. It is valid once, for ten minutes, and holds a secret after `#`. Never put it in the Nix store, SOPS, or this repository.
+1. On the hub, which must listen on the private network (`--listen private:<port>`) at a port the Pi can reach, make an invite with `ritornelctl link invite`. It is valid once, for ten minutes, and holds a secret after `#`. Never put it in the Nix store, SOPS, or this repository.
 2. On the Pi, within those ten minutes: `ritornelctl link join '<invite>' --data-dir /var/lib/ritornel`.
 3. Check with `ritornelctl link status` on either side.
 
@@ -31,7 +31,7 @@ The hub refuses a satellite that speaks another contract version, and the refusa
 | Path | Contents | Retention |
 |---|---|---|
 | `/var/lib/ritornel/server.db` | The hub link, player, queue, and listens waiting for the hub | Kept |
-| `/var/lib/ritornel/cache/audio` | Each master pulled whole from the hub before it plays | Up to 1 GiB (`RITORNEL_CACHE_SIZE`); the server evicts beyond that |
+| `/var/lib/ritornel/cache/audio` | Each master pulled whole from the hub before it plays | About 1 GiB (`RITORNEL_CACHE_SIZE`). It's a target: the master playing, the newest other one and any being pulled are kept even above it |
 | `/var/lib/ritornel/logs/` | The server's own JSON-line log, one file a day | Never pruned |
 
 The server's log is written to the SD card, outside the journal, which stays in RAM. Count it with the cache and the database when looking at card wear (`node_disk_written_bytes_total`, see [observability](observability.md#memory-and-sd-storage)), and delete old log files by hand if they pile up.
