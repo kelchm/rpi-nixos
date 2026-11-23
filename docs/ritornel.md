@@ -8,7 +8,7 @@
 
 ## Service
 
-`ritornel.service` runs `ritornel-server serve --data-dir /var/lib/ritornel --output default` as the `ritornel` system user, which is in the `pipewire` group to reach the system PipeWire socket. It starts after PipeWire and WirePlumber and restarts ten seconds after a failure. It does not wait for the network, because the server starts without its hub and finds it once it answers. With no `--listen`, the server stays on loopback and the role opens no firewall port.
+`ritornel.service` runs `ritornel-server serve --data-dir /var/lib/ritornel --output default` as the `ritornel` system user, which is in the `pipewire` group to reach the system PipeWire socket. It takes the AirPlay receiver's name (`RITORNEL_NAME`), so the hub lists it by what the speakers are called. It starts after PipeWire and WirePlumber and restarts ten seconds after a failure. It does not wait for the network, because the server starts without its hub and finds it once it answers. With no `--listen`, the server stays on loopback and the role opens no firewall port.
 
 Sound goes through ALSA's `default` device into PipeWire, whose only sink is the USB DAC: the streamer role disables the Pi's headphone jack and keeps the DAC's hardware volume at 0 dB across reboots and replugs. Ritornel's volume is its own gain, independent of the AirPlay slider.
 
@@ -31,7 +31,7 @@ The hub refuses a satellite that speaks another contract version, and the refusa
 | Path | Contents | Retention |
 |---|---|---|
 | `/var/lib/ritornel/server.db` | The hub link, player, queue, and listens waiting for the hub | Kept |
-| `/var/lib/ritornel/cache/audio` | Each master pulled whole from the hub before it plays | Until the server evicts it |
+| `/var/lib/ritornel/cache/audio` | Each master pulled whole from the hub before it plays | Up to 1 GiB (`RITORNEL_CACHE_SIZE`); the server evicts beyond that |
 | `/var/lib/ritornel/logs/` | The server's own JSON-line log, one file a day | Never pruned |
 
 The server's log is written to the SD card, outside the journal, which stays in RAM. Count it with the cache and the database when looking at card wear (`node_disk_written_bytes_total`, see [observability](observability.md#memory-and-sd-storage)), and delete old log files by hand if they pile up.

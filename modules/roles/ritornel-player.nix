@@ -1,4 +1,4 @@
-{ lib, pkgs, sources, rust-overlay, ... }:
+{ config, lib, pkgs, sources, rust-overlay, ... }:
 let
   rustToolchain = (rust-overlay.lib.mkRustBin { } pkgs).fromRustupToolchainFile
     "${sources.ritornel.src}/rust-toolchain.toml";
@@ -57,6 +57,12 @@ in
       # The ALSA PipeWire plugin looks for the socket here; the service has
       # no session and so no XDG_RUNTIME_DIR.
       PIPEWIRE_RUNTIME_DIR = "/run/pipewire";
+      # Hub and clients list this player by the name its AirPlay receiver
+      # has, not the hostname. A setting wins over the stored name each start.
+      RITORNEL_NAME = config.services.shairport-sync.settings.general.name;
+      # Masters pulled from the hub, kept on the SD card. 1 GiB holds a few
+      # albums of CD rips; the default, 2 GiB, buys little but card wear.
+      RITORNEL_CACHE_SIZE = "1 GiB";
     };
     serviceConfig = {
       User = "ritornel";
