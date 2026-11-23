@@ -31,7 +31,7 @@
     # speak the same contract version or they refuse each other, so this
     # moves only with the hub. A commit in the URL keeps lock maintenance from
     # moving it, and Dependabot isn't allowed to.
-    ritornel = { url = "github:ritornel/ritornel/0e6f81d29f7219f3de1bf5a879c2e4f233c8767a"; flake = false; };
+    ritornel = { url = "github:ritornel/ritornel/1c1d0051391edaa4d2880e8769742e36a46612a1"; flake = false; };
     # The Rust that Ritornel's rust-toolchain.toml names, usually newer than
     # nixpkgs' rustc. Lock maintenance refreshes it; a pinned toolchain
     # version builds the same either way.
