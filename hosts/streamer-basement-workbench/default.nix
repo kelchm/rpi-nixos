@@ -16,6 +16,16 @@
   # User-facing name in iOS/macOS AirPlay pickers.
   services.shairport-sync.settings.general.name = "Basement Workbench Speakers";
 
+  # The D3V takes 44.1 and 48 kHz. AirPlay and CD rips are 44.1 kHz, so let
+  # the graph follow them rather than resample everything to PipeWire's
+  # default 48 kHz. The graph only changes rate while no stream holds it:
+  # Ritornel opens at the device's default rate (48 kHz) and keeps that
+  # stream open once it has played, even paused or stopped, which holds the
+  # D3V at 48 kHz until the server restarts.
+  services.pipewire.extraConfig.pipewire."10-clock-rates" = {
+    "context.properties"."default.clock.allowed-rates" = [ 44100 48000 ];
+  };
+
   # Thread border routers on Main and Guest announce the same on-link IPv6
   # prefix. Reflected Bonjour records then send Main clients looking for this
   # Pi on their own VLAN. Publish only its reachable IPv4 address until IPv6
