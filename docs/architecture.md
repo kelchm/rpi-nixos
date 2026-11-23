@@ -6,7 +6,7 @@ Host configuration is assembled by `mkHost` in [flake.nix](../flake.nix). Shared
 
 | Host | Hardware | Roles |
 |---|---|---|
-| `streamer-basement-workbench` | Pi Zero 2 W | AirPlay receiver through PipeWire and a USB DAC |
+| `streamer-basement-workbench` | Pi Zero 2 W | AirPlay receiver and Ritornel player through PipeWire and a USB DAC |
 | `ups-compute-rack` | Pi 5 | Compute-rack UPS, local NTP, and service probes |
 | `ups-office` | Pi 5 | Office UPS, local NTP, ADS-B receiver, aircraft map, and community feeds |
 | `adsb-office` | Pi 3 Model B | ADS-B fallback (normally off) |
@@ -16,7 +16,7 @@ The definitions in [hosts/](../hosts/) and [flake.nix](../flake.nix) are authori
 ## Modules and packages
 
 - `modules/hardware/` supplies board-specific support and common platform policy.
-- `modules/roles/` contains the AirPlay, UPS, NTP, and ADS-B services.
+- `modules/roles/` contains the AirPlay, Ritornel, UPS, NTP, and ADS-B services.
 - `modules/profiles/` contains metrics, journal shipping, and optional debugging configuration.
 - `pkgs/` supplies packages absent from the pinned nixpkgs or requiring a newer release. Sources and versions are pinned in the flake.
 

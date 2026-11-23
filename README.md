@@ -8,7 +8,7 @@ The four configurations in this repo combine boards, peripherals, and service ro
 
 | Appliance | Board used here | Peripherals | Functions |
 |---|---|---|---|
-| Workbench AirPlay receiver | Pi Zero 2 W (WiFi) | USB DAC and powered speakers | AirPlay 2 audio |
+| Workbench AirPlay receiver | Pi Zero 2 W (WiFi) | USB DAC and powered speakers | AirPlay 2 audio, Ritornel player |
 | Compute-rack UPS and time server | Pi 5 (wired) | CyberPower UPS over USB | UPS telemetry, NTP, service probes |
 | Office UPS, time server and ADS-B receiver | Pi 5 (wired) | Vertiv Liebert PSA5 over USB; RTL-SDR and antenna | UPS telemetry, NTP, ADS-B, aircraft map and community feeds |
 | Standalone ADS-B fallback | Pi 3 Model B (wired) | Same RTL-SDR and antenna as the office receiver | ADS-B |
@@ -22,6 +22,7 @@ The standalone ADS-B fallback uses the office receiver's SDR, antenna, and Fligh
 ## 📦 What each role does
 
 - **AirPlay 2.** Makes the workbench speakers available as an AirPlay receiver. shairport-sync and nqptp handle the session and its timing; PipeWire drives the audio output.
+- **Ritornel player.** Plays music from a [Ritornel](https://github.com/ritornel/ritornel) hub through the same speakers, as one of the hub's satellites: it pulls each track from the hub and sends its listens back.
 - **UPS monitoring.** Network UPS Tools reads battery charge, runtime, load, and input voltage, supplying telemetry for home-lab's power alerts.
 - **NTP.** chrony serves local time using the Starlink dish and public NTP pool servers as sources.
 - **ADS-B.** dump1090-fa decodes broadcasts from nearby aircraft, piaware feeds FlightAware and participates in multilateration, and SkyAware provides a live aircraft map. On the office Pi, an Ultrafeeder container adds a tar1090 map with history graphs and feeds adsb.lol and airplanes.live.
@@ -32,7 +33,7 @@ Each Pi is a complete NixOS system defined in this flake, from kernel and firmwa
 
 Board support, service roles, and profiles are shared modules that each host composes.
 
-Board support comes from [nvmd/nixos-raspberrypi](https://github.com/nvmd/nixos-raspberrypi), pinned to tagged releases, while host userspace follows a stable nixpkgs channel independently. Local packages in `pkgs/` supply AirPlay 2 components, the FlightAware uploader and MLAT client, and Fluent Bit from pinned upstream releases. Renovate and Dependabot propose updates; CI evaluates every host and checks that a routine OS refresh leaves the kernel and firmware alone.
+Board support comes from [nvmd/nixos-raspberrypi](https://github.com/nvmd/nixos-raspberrypi), pinned to tagged releases, while host userspace follows a stable nixpkgs channel independently. Local packages in `pkgs/` supply AirPlay 2 components, the FlightAware uploader and MLAT client, and Fluent Bit from pinned upstream releases, and the Ritornel player from a pinned commit. Renovate and Dependabot propose updates; CI evaluates every host and checks that a routine OS refresh leaves the kernel and firmware alone.
 
 Settings that shouldn't be public, such as WiFi credentials, the FlightAware feeder ID and antenna location, and metrics ingest tokens, are kept in per-host files encrypted with [SOPS](https://github.com/getsops/sops) and age. The Pis decrypt them with one shared fleet key.
 
@@ -45,7 +46,7 @@ rpi-nixos/
 ├── hosts/          # one directory per Pi: board, roles, profiles, host-specific settings
 ├── modules/
 │   ├── hardware/   # board support and shared Pi platform policy
-│   ├── roles/      # AirPlay, UPS, NTP, and ADS-B services
+│   ├── roles/      # AirPlay, Ritornel, UPS, NTP, and ADS-B services
 │   └── profiles/   # metrics, journal shipping, and debugging
 ├── pkgs/           # packages built from pinned upstream releases
 ├── secrets/        # SOPS-encrypted per-host settings
@@ -60,5 +61,6 @@ rpi-nixos/
 - [Setup and operations](docs/operations.md) — prerequisites, deployment, provisioning, recovery, and key management.
 - [Observability](docs/observability.md) — metrics and journal shipping, service probes, resource limits, and verification.
 - [ADS-B map and feeds](docs/adsb.md) — the Ultrafeeder map, community feeds, networking, state, validation, and updates.
+- [Ritornel player](docs/ritornel.md) — the satellite service, joining its hub, state, and updates.
 - [Time services](docs/time-services.md) — the NTP servers, their sources and access policy, and validation.
 - [Platform and dependency maintenance](docs/platform-and-updates.md) — upstream choices, update flow, CI checks, and hardware quirks.

@@ -45,10 +45,11 @@ in
     # Volume architecture: every digital stage at unity, the speaker's analog
     # knob is the sole moving master. See README's audio architecture notes.
     #
-    # Two layers were stealing ~47 dB on a fresh boot:
+    # Two layers were stealing ~44 dB on a fresh boot:
     #   - WirePlumber 0.5 ships device.routes.default-sink-volume = 0.4^3 = 0.064
     #     linear = -24 dB for every freshly-detected sink
-    #   - PCM2704 on-chip 'PCM Playback Volume' defaults to ~64% = -23 dB
+    #   - PCM2704 on-chip 'PCM Playback Volume' defaults to 44 of 64 = -20 dB
+    #     (set to 0 dB on every boot and replug, below)
     #
     # Flat dotted-key form is REQUIRED for wireplumber.extraConfig — nesting
     # these as Nix sub-attrs silently emits the wrong SPA-JSON section header.
@@ -75,12 +76,36 @@ in
         actions.update-props."api.alsa.soft-mixer" = true;
       }];
     };
+
+    # The USB DAC is the only output. With the Pi's own headphone jack left
+    # on, PipeWire falls back to it whenever the DAC is off or unplugged, and
+    # a player would carry on into a jack nothing is connected to.
+    wireplumber.extraConfig."30-no-builtin-audio" = {
+      "monitor.alsa.rules" = [{
+        matches = [{ "api.alsa.card.name" = "~bcm2835.*"; }];
+        actions.update-props."device.disabled" = true;
+      }];
+    };
   };
 
-  # asound.state persistence: PipeWire stops writing to the hw mixer (above),
-  # so the kernel keeps whatever amixer last stored. Without this, the mixer
-  # resets to driver default (~64% / -23 dB) on every reboot and USB hot-replug.
+  # The PCM2704's on-chip volume is set to 0 dB here, not left to a saved
+  # mixer state: PipeWire never writes it (above), and the chip comes up at
+  # its own default (44 of 64, -20 dB) on every power-up. A saved
+  # asound.state once held -20 dB and restored it at each boot and replug.
+  # This runs whenever the card appears, after the boot-time restore of
+  # alsa-store.service and udev's restore on replug, so 0 dB always wins.
   hardware.alsa.enablePersistence = true;
+  services.udev.extraRules = ''
+    ACTION=="add", SUBSYSTEM=="sound", KERNEL=="controlC*", ATTRS{idVendor}=="08bb", ATTRS{idProduct}=="2704", TAG+="systemd", ENV{SYSTEMD_WANTS}+="pcm2704-unity@%n.service"
+  '';
+  systemd.services."pcm2704-unity@" = {
+    description = "PCM2704 on-chip volume at 0 dB on card %i";
+    after = [ "alsa-store.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.alsa-utils}/bin/amixer -q -c %i sset PCM 0dB unmute";
+    };
+  };
 
   # AirPlay 2 receiver (AirPlay 1 senders still work). AP2 times playback
   # against the sender's PTP clock via nqptp, which only listens: the sender

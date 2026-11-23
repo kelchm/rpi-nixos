@@ -179,6 +179,23 @@
         "type": "github"
       }
     },
+    "ritornel": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1795401154,
+        "narHash": "sha256-OaoUTzV7OE2bdQgQkzJtYdyGak6rdZIBfNuzIPYDw1E=",
+        "owner": "ritornel",
+        "repo": "ritornel",
+        "rev": "1c1d0051391edaa4d2880e8769742e36a46612a1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ritornel",
+        "repo": "ritornel",
+        "rev": "1c1d0051391edaa4d2880e8769742e36a46612a1",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "fluent-bit": "fluent-bit",
@@ -187,9 +204,31 @@
         "nixpkgs": "nixpkgs_2",
         "nqptp": "nqptp",
         "piaware": "piaware",
+        "ritornel": "ritornel",
+        "rust-overlay": "rust-overlay",
         "shairport-sync": "shairport-sync",
         "sops-nix": "sops-nix",
         "tcllauncher": "tcllauncher"
+      }
+    },
+    "rust-overlay": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1795340093,
+        "narHash": "sha256-fosvQ7eeQMrh6RvUXotBc6d92dHskAI6tu1EERJQ2LY=",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "5aa410a1df0e4e9c25f3818320651c2bddf66aff",
+        "type": "github"
+      },
+      "original": {
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "type": "github"
       }
     },
     "shairport-sync": {
