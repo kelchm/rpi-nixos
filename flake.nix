@@ -20,7 +20,7 @@
 
     # Sources for pkgs/, pinned to release tags. Dependabot moves a tag and
     # relocks, and each package takes its version from its tag.
-    shairport-sync = { url = "github:mikebrady/shairport-sync/5.6.2"; flake = false; };
+    shairport-sync = { url = "github:mikebrady/shairport-sync/5.6.3"; flake = false; };
     nqptp = { url = "github:mikebrady/nqptp/1.2.9"; flake = false; };
     piaware = { url = "github:flightaware/piaware/v11.1"; flake = false; };
     tcllauncher = { url = "github:flightaware/tcllauncher/v1.10"; flake = false; };
