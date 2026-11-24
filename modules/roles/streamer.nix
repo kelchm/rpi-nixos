@@ -175,6 +175,10 @@ in
   # "pw_processor not running" while every audio frame is dropped.
   users.users.shairport.extraGroups = [ "pipewire" ];
 
+  # Keep PipeWire's socket active on deploy and restart the service itself.
+  # That lets systemd restart Shairport with it in the same transaction.
+  systemd.services.pipewire.stopIfChanged = false;
+
   # services.shairport-sync renders its config to /etc/shairport-sync.conf
   # (NOT into the systemd unit's ExecStart). When only the conf changes,
   # NixOS doesn't re-fingerprint the unit and the running daemon keeps the
@@ -183,7 +187,10 @@ in
   systemd.services.shairport-sync = {
     restartTriggers = [ config.environment.etc."shairport-sync.conf".source ];
     bindsTo = [ "nqptp.service" ];
-    after = [ "nqptp.service" ];
+    # Shairport can stay alive with a dead stream after PipeWire restarts.
+    # Restart it after the new PipeWire process is up.
+    partOf = [ "pipewire.service" ];
+    after = [ "nqptp.service" "pipewire.service" ];
     # Restart in one step after the new units load. Stopping it before
     # activation (the default) lets nqptp's upholds start it straight back on
     # the old unit and /etc, so a deploy's shairport-sync changes waited for
