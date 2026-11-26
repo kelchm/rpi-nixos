@@ -16,7 +16,7 @@
     # Pi 02 / 3 / 4 / 5 + CM4 / CM5 with vendor kernel + firmware, and the
     # uConsole flake (when we add it) is a thin layer over this.
     # Pin to a tagged release, NEVER track main/develop.
-    nixos-raspberrypi.url = "github:nvmd/nixos-raspberrypi/v1.20260801.0";
+    nixos-raspberrypi.url = "github:nvmd/nixos-raspberrypi/v1.20261108.0";
 
     # Sources for pkgs/, pinned to release tags. Dependabot moves a tag and
     # relocks, and each package takes its version from its tag.
