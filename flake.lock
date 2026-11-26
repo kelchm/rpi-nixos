@@ -182,17 +182,17 @@
     "ritornel": {
       "flake": false,
       "locked": {
-        "lastModified": 1795550508,
-        "narHash": "sha256-8wNPwkUK4Xy+S6Z70Fz4xpjRnUBeqoGYoYiZDFjxQ3w=",
+        "lastModified": 1795668714,
+        "narHash": "sha256-lcRQeqVM91XbMeka/gEwD7sAF1H5pa0kMIcm7NzPfro=",
         "owner": "ritornel",
         "repo": "ritornel",
-        "rev": "ff72f6cb30ede15bb198e2c4af4641b698584abe",
+        "rev": "5d4ee9dc4c78b083f4d652822a82a3c787b4e6e2",
         "type": "github"
       },
       "original": {
         "owner": "ritornel",
         "repo": "ritornel",
-        "rev": "ff72f6cb30ede15bb198e2c4af4641b698584abe",
+        "rev": "5d4ee9dc4c78b083f4d652822a82a3c787b4e6e2",
         "type": "github"
       }
     },
