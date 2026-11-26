@@ -42,8 +42,14 @@ in
     alsa.enable = true;
     pulse.enable = true;
 
-    # Volume architecture: every digital stage at unity, the speaker's analog
-    # knob is the sole moving master. See README's audio architecture notes.
+    # Volume architecture: keep PipeWire and the PCM2704C hardware mixer at
+    # unity (0 dB). On the ADAM Audio D3V, the USB-C path is TI PCM2704C
+    # (16-bit DAC -> analog) -> ADAU1701 SigmaDSP (24-bit ADC -> DSP / digital
+    # front-knob encoder -> DAC -> Class-D amps). Keeping the PCM2704C at 0 dB
+    # preserves 16-bit DAC resolution and analog SNR into the D3V's ADC, while
+    # attenuation happens upstream via Ritornel's perceptual volume curve (or
+    # Shairport's software attenuator) and/or downstream at the D3V's digital
+    # front knob.
     #
     # Two layers were stealing ~44 dB on a fresh boot:
     #   - WirePlumber 0.5 ships device.routes.default-sink-volume = 0.4^3 = 0.064
@@ -74,6 +80,26 @@ in
       "monitor.alsa.rules" = [{
         matches = [{ "device.product.name" = "~PCM2704.*"; }];
         actions.update-props."api.alsa.soft-mixer" = true;
+      }];
+    };
+
+    # PCM2704C is a 16-bit DAC (S16LE), and PipeWire defaults to dither.method
+    # = "none" (undithered quantization from 32-bit float). Enable flat
+    # triangular (TPDF) dithering on the PCM2704 playback node to decorrelate
+    # quantization error under upstream software attenuation (Ritornel /
+    # Shairport). Avoid noise-shaped methods like wannamaker3, which push
+    # ultrasonic noise into the D3V's 48 kHz ADAU1701 ADC.
+    #
+    # ALSA node rules don't inherit device.product.name from the card, so match
+    # the playback sink via alsa.components (the same TI 08bb:2704 VID:PID as
+    # the udev rule below).
+    wireplumber.extraConfig."25-pcm2704-dither" = {
+      "monitor.alsa.rules" = [{
+        matches = [{
+          "media.class" = "Audio/Sink";
+          "alsa.components" = "~.*USB08bb:2704.*";
+        }];
+        actions.update-props."dither.method" = "triangular";
       }];
     };
 
@@ -117,8 +143,9 @@ in
   # shairport-sync's internal software attenuator. dasl_tapered maps the
   # AirPlay 30 dB range perceptually-linearly across the available headroom
   # (vs `standard` which is logarithmic but has audible jumps at the bottom).
-  # Bit-perfect at slider-max; mildly lossy below. The right trade for a
-  # desk-side speaker where the Mac slider is the day-to-day master.
+  # Shairport applies unity gain at slider-max (PipeWire adds TPDF dither at
+  # the 16-bit sink); mildly lossy below. The right trade for a desk-side
+  # speaker where the Mac slider is the day-to-day master.
   # PipeWire stays at unity (see wireplumber.extraConfig above); the D3V knob
   # is for setting absolute max output once and not touching.
   services.shairport-sync = {
