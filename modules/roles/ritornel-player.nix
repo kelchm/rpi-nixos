@@ -4,7 +4,7 @@ let
     "${sources.ritornel.src}/rust-toolchain.toml";
   ritornel = pkgs.callPackage ../../pkgs/ritornel.nix {
     inherit rustToolchain;
-    inherit (sources.ritornel) src version;
+    inherit (sources.ritornel) src version rev tag;
   };
 
   dataDir = "/var/lib/ritornel";
