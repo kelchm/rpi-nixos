@@ -31,7 +31,7 @@
     # speak the same contract version or they refuse each other, so this
     # moves only with the hub. A commit in the URL keeps lock maintenance from
     # moving it, and Dependabot isn't allowed to.
-    ritornel = { url = "github:ritornel/ritornel/d529caf285ad88fcd47077fe638dd0774b760dfd"; flake = false; };
+    ritornel = { url = "github:ritornel/ritornel/f6132affa08c9ac6e5ee7945b1ca77529cc457c7"; flake = false; };
     # The Rust that Ritornel's rust-toolchain.toml names, usually newer than
     # nixpkgs' rustc. Lock maintenance refreshes it; a pinned toolchain
     # version builds the same either way.
@@ -71,11 +71,22 @@
           version = nixpkgs.lib.removePrefix "v"
             lock.nodes.${lock.nodes.${lock.root}.inputs.${name}}.original.ref;
         }) // {
-          # Pinned to a commit rather than a tag; Ritornel has no releases yet.
-          ritornel = {
-            src = inputs.ritornel;
-            version = "0-unstable-${builtins.substring 0 8 inputs.ritornel.lastModifiedDate}";
-          };
+          # Pinned to a commit; set `tag` when that commit is a release tag
+          # (e.g. "v0.1.0") so Nix and Ritornel's build script report the
+          # release version rather than a +dev.<sha> build.
+          ritornel =
+            let
+              tag = "v0.1.0";
+            in
+            {
+              src = inputs.ritornel;
+              rev = inputs.ritornel.rev;
+              inherit tag;
+              version =
+                if tag != null
+                then nixpkgs.lib.removePrefix "v" tag
+                else "0-unstable-${builtins.substring 0 8 inputs.ritornel.lastModifiedDate}";
+            };
         };
 
       # Passing nixpkgs here changes host userspace, without changing the
