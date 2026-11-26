@@ -25,7 +25,7 @@
     piaware = { url = "github:flightaware/piaware/v11.1"; flake = false; };
     tcllauncher = { url = "github:flightaware/tcllauncher/v1.10"; flake = false; };
     mlat-client = { url = "github:mutability/mlat-client/v0.2.13"; flake = false; };
-    fluent-bit = { url = "github:fluent/fluent-bit/v5.1.5"; flake = false; };
+    fluent-bit = { url = "github:fluent/fluent-bit/v5.2.0"; flake = false; };
 
     # Ritornel, pinned to one commit by hand. A satellite and its hub must
     # speak the same contract version or they refuse each other, so this
